@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.1)</title>
+    <title>條碼檢核 What barcode (v10.2)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -88,18 +88,36 @@
         .card-options { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; background: #f8fafc; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; }
         .card-options input { accent-color: #0055AA; width: 16px; height: 16px; cursor: pointer; }
         
-        /* v10.1 優化 Canvas 顯示 */
         canvas { 
-            display: block; 
-            /* 讓 Canvas 在容器內盡量大，但不過寬 */
-            max-width: 100%; 
-            height: auto !important; 
-            margin-bottom: 20px; 
-            image-rendering: pixelated; 
-            background-color: white; 
-            padding: 15px; 
-            border-radius: 8px; 
-            border: 1px solid #f1f5f9; 
+            display: block; max-width: 100%; height: auto !important; margin-bottom: 20px; 
+            image-rendering: pixelated; background-color: white; padding: 15px; 
+            border-radius: 8px; border: 1px solid #f1f5f9; 
+        }
+
+        /* v10.2 QR 內容顯示區樣式 */
+        .qr-content {
+            width: 100%;
+            margin-bottom: 15px;
+            padding: 12px;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            color: #334155;
+            word-break: break-all; /* 防止長網址破版 */
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .qr-content a {
+            color: #0055AA;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            transition: 0.2s;
+        }
+        .qr-content a:hover {
+            text-decoration: underline;
+            color: #003366;
         }
         
         .btn-group { display: flex; gap: 12px; width: 100%; margin-top: 10px; }
@@ -435,16 +453,19 @@
         const canvas = card.querySelector('canvas');
         const errorOverlay = card.querySelector('.error-overlay');
         const btnGroup = card.querySelector('.btn-group');
+        const qrContent = card.querySelector('.qr-content'); // v10.2: 也要控制 QR 內容顯示
 
         if (editPanel.style.display === 'flex') {
             editPanel.style.display = 'none';
             if(errorOverlay.style.display !== 'block') {
                 canvas.style.display = 'block';
+                if(qrContent) qrContent.style.display = 'block'; // 恢復 QR 內容
                 btnGroup.style.display = 'flex';
             }
         } else {
             editPanel.style.display = 'flex';
             canvas.style.display = 'none';
+            if(qrContent) qrContent.style.display = 'none'; // 隱藏 QR 內容
             errorOverlay.style.display = 'none';
             btnGroup.style.display = 'none';
             const input = editPanel.querySelector('.edit-input');
@@ -468,6 +489,7 @@
         const errorOverlay = card.querySelector('.error-overlay');
         const btnGroup = card.querySelector('.btn-group');
         const checkbox = card.querySelector('.show-symbols-check');
+        const qrContent = card.querySelector('.qr-content');
         
         const newRawText = editInput.value.trim(); 
         const newCleanText = newRawText.replace(/[-\s\*\(\)<>]/g, '');
@@ -485,6 +507,23 @@
             errorOverlay.style.display = 'none';
             btnGroup.style.display = 'flex';
             
+            // v10.2: 更新 QR 文字區塊
+            if (formatId === 'qrcode') {
+                let qrDiv = card.querySelector('.qr-content');
+                if (!qrDiv) {
+                    qrDiv = document.createElement('div');
+                    qrDiv.className = 'qr-content';
+                    card.insertBefore(qrDiv, btnGroup);
+                }
+                qrDiv.style.display = 'block'; // 確保顯示
+                
+                if (newRawText.match(/^https?:\/\//i)) {
+                    qrDiv.innerHTML = `<a href="${newRawText}" target="_blank" rel="noopener noreferrer">🔗 ${newRawText}</a>`;
+                } else {
+                    qrDiv.textContent = newRawText;
+                }
+            }
+
             const pngBtn = btnGroup.querySelector('button[onclick*="downloadPNG"]');
             pngBtn.setAttribute('onclick', `downloadPNG(this, '${newRawText.replace(/'/g, "\\'")}', '${formatId}')`);
             
@@ -503,6 +542,7 @@
             }
         } else {
             canvas.style.display = 'none';
+            if(qrContent) qrContent.style.display = 'none';
             btnGroup.style.display = 'none';
             
             const diagnosis = diagnoseError(formatId, newRawText, newCleanText);
@@ -557,6 +597,18 @@
         
         const canvas = document.createElement('canvas'); card.appendChild(canvas);
         
+        // v10.2: 初始 QR 內容生成
+        if (cand.id === 'qrcode') {
+            const qrDiv = document.createElement('div');
+            qrDiv.className = 'qr-content';
+            if (rawText.match(/^https?:\/\//i)) {
+                qrDiv.innerHTML = `<a href="${rawText}" target="_blank" rel="noopener noreferrer">🔗 ${rawText}</a>`;
+            } else {
+                qrDiv.textContent = rawText;
+            }
+            card.appendChild(qrDiv);
+        }
+
         if (!isValid && cand.isStandard && checkResult && checkResult.expected !== null) {
             const warn = document.createElement('div'); 
             warn.className = 'dynamic-warning';
@@ -606,9 +658,9 @@
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             }
             
-            // v10.1 QR 放大
+            // v10.2: QR 維持不包含內文 (因為已經有外文顯示)
             if (formatId === 'qrcode') { 
-                drawOpts.scale = 12; // 放大 QR Code 
+                drawOpts.scale = 12; 
                 drawOpts.includetext = false; 
                 delete drawOpts.height; 
             }
