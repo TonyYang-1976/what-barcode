@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.0)</title>
+    <title>條碼檢核 What barcode (v10.1)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -34,17 +34,14 @@
         .status-error { background-color: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: currentColor; box-shadow: 0 0 5px currentColor; }
 
-        /* v10.0 輸入區塊優化 */
         .input-area { 
             position: sticky; top: 0; background: white; z-index: 100; 
             padding-bottom: 20px; margin-bottom: 10px; 
-            display: flex; gap: 10px; align-items: stretch; /* 讓高度一致 */
+            display: flex; gap: 10px; align-items: stretch;
         }
         
         input[type="text"].main-input { 
-            flex: 1; /* 自動佔滿剩餘空間 */
-            min-width: 0; /* 防止被內容撐爆 */
-            padding: 18px; font-size: 28px; text-align: center; 
+            flex: 1; min-width: 0; padding: 18px; font-size: 28px; text-align: center; 
             border: 2px solid #e2e8f0; border-radius: 12px; outline: none; 
             font-weight: bold; letter-spacing: 3px; box-sizing: border-box; 
             color: #334155; transition: all 0.3s; background: #f8fafc;
@@ -52,12 +49,11 @@
         input[type="text"].main-input:focus { border-color: #0055AA; background: #fff; box-shadow: 0 0 0 4px rgba(0, 85, 170, 0.1); }
         input[type="text"].main-input::placeholder { color: #cbd5e1; font-weight: normal; letter-spacing: 1px; }
 
-        /* v10.0 相機按鈕 PC 版設定 */
         .camera-btn {
             padding: 0 25px; font-size: 24px; cursor: pointer;
             background-color: #0055AA; color: white; border: none; border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
-            transition: 0.2s; white-space: nowrap; flex-shrink: 0; /* 防止按鈕被壓縮 */
+            transition: 0.2s; white-space: nowrap; flex-shrink: 0;
         }
         .camera-btn:hover { background-color: #004499; }
         .camera-btn.active { background-color: #dc2626; }
@@ -92,10 +88,27 @@
         .card-options { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; background: #f8fafc; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; }
         .card-options input { accent-color: #0055AA; width: 16px; height: 16px; cursor: pointer; }
         
-        canvas { display: block; max-width: 100%; height: auto !important; margin-bottom: 20px; image-rendering: pixelated; background-color: white; padding: 15px; border-radius: 8px; border: 1px solid #f1f5f9; }
+        /* v10.1 優化 Canvas 顯示 */
+        canvas { 
+            display: block; 
+            /* 讓 Canvas 在容器內盡量大，但不過寬 */
+            max-width: 100%; 
+            height: auto !important; 
+            margin-bottom: 20px; 
+            image-rendering: pixelated; 
+            background-color: white; 
+            padding: 15px; 
+            border-radius: 8px; 
+            border: 1px solid #f1f5f9; 
+        }
         
         .btn-group { display: flex; gap: 12px; width: 100%; margin-top: 10px; }
-        button { flex: 1; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 8px; color: #475569; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        button { 
+            flex: 1; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; 
+            background-color: #fff; border: 1px solid #cbd5e1; border-radius: 8px; 
+            color: #475569; transition: all 0.2s; 
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
         button:hover { background-color: #f0f9ff; border-color: #0055AA; color: #0055AA; transform: translateY(-1px); }
         
         .edit-panel { width: 100%; display: none; flex-direction: column; gap: 12px; background: #f8fafc; padding: 20px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 20px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.03); }
@@ -114,7 +127,6 @@
 
         .empty-state { color: #94a3b8; font-size: 16px; margin-top: 30px; text-align: center; font-weight: 500;}
 
-        /* --- v10.0 RWD 關鍵修正 --- */
         @media (max-width: 600px) {
             body { padding: 10px; }
             .main-container { padding: 20px; }
@@ -122,20 +134,9 @@
             .status-badge { align-self: flex-start; font-size: 12px; padding: 6px 12px; }
             .main-title { font-size: 24px; }
             .sub-title { font-size: 18px; display: block; margin-left: 0; margin-top: 2px;}
-            
-            /* 輸入區在手機上的調整 */
             .input-area { gap: 8px; }
-            input[type="text"].main-input { 
-                font-size: 18px; padding: 12px; letter-spacing: 1px;
-            }
-            /* 相機按鈕變身：縮小 padding，保持正方形，避免被擠出 */
-            .camera-btn { 
-                padding: 0; 
-                width: 50px; /* 固定寬度 */
-                flex: 0 0 50px; /* 禁止壓縮與放大 */
-                font-size: 20px; 
-            }
-
+            input[type="text"].main-input { font-size: 18px; padding: 12px; letter-spacing: 1px; }
+            .camera-btn { padding: 0; width: 50px; flex: 0 0 50px; font-size: 20px; }
             .barcode-card { padding: 15px; }
             .card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
             .card-options { width: 100%; box-sizing: border-box; justify-content: center;}
@@ -196,7 +197,6 @@
     let lastKeyTime = 0;
     const SCAN_GAP_TOLERANCE = 200; 
 
-    // 相機變數
     let html5QrCode;
     let isCameraRunning = false;
 
@@ -234,7 +234,6 @@
     window.addEventListener('online', updateSystemStatus);
     window.addEventListener('offline', updateSystemStatus);
 
-    // --- 相機邏輯 ---
     function toggleCamera() {
         const readerContainer = document.getElementById('reader-container');
         const cameraBtn = document.getElementById('cameraBtn');
@@ -275,9 +274,7 @@
         analyzeAndRender(decodedText.toUpperCase()); 
     }
 
-    function onScanFailure(error) {
-        // console.warn(`Code scan error = ${error}`);
-    }
+    function onScanFailure(error) { }
 
     document.addEventListener('keydown', (e) => {
         if (e.target.classList.contains('edit-input')) return;
@@ -608,7 +605,13 @@
             } else {
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             }
-            if (formatId === 'qrcode') { drawOpts.scale = 5; drawOpts.includetext = false; delete drawOpts.height; }
+            
+            // v10.1 QR 放大
+            if (formatId === 'qrcode') { 
+                drawOpts.scale = 12; // 放大 QR Code 
+                drawOpts.includetext = false; 
+                delete drawOpts.height; 
+            }
 
             canvas.dataset.drawOpts = JSON.stringify(drawOpts);
             bwipjs.toCanvas(canvas, drawOpts);
