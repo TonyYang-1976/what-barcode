@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>條碼檢核 What barcode (v9.9)</title>
+    <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Roboto:wght@300;500&family=JetBrains+Mono&display=swap');
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei UI", sans-serif; 
+            background-color: #f0f2f5; margin: 0; padding: 20px; -webkit-font-smoothing: antialiased; 
+        }
+        
+        .main-container { 
+            max-width: 850px; margin: 0 auto; background-color: white; 
+            padding: 40px; border-radius: 16px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
+            border-top: 5px solid #0055AA; 
+        }
+
+        .header-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; border-bottom: 2px solid #eaeff2; padding-bottom: 20px; }
+        .title-group { display: flex; flex-direction: column; gap: 5px; }
+        .main-title { font-size: 32px; font-weight: 900; letter-spacing: 1px; background: linear-gradient(135deg, #002B5B 0%, #0055AA 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.2; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .sub-title { font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 300; color: #5f6c7b; margin-left: 2px; }
+        .version-pill { font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 12px; color: #64748b; background-color: #f1f5f9; padding: 4px 10px; border-radius: 20px; border: 1px solid #cbd5e1; align-self: flex-start; margin-top: 8px; display: inline-block; letter-spacing: -0.5px; }
+        
+        .status-badge { padding: 8px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); white-space: nowrap; }
+        .status-online { background-color: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+        .status-offline { background-color: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+        .status-error { background-color: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: currentColor; box-shadow: 0 0 5px currentColor; }
+
+        /* 輸入區塊修改為 Flex 以容納相機按鈕 */
+        .input-area { 
+            position: sticky; top: 0; background: white; z-index: 100; 
+            padding-bottom: 20px; margin-bottom: 10px; 
+            display: flex; gap: 10px;
+        }
+        
+        input[type="text"].main-input { 
+            flex: 1; padding: 18px; font-size: 28px; text-align: center; 
+            border: 2px solid #e2e8f0; border-radius: 12px; outline: none; 
+            font-weight: bold; letter-spacing: 3px; box-sizing: border-box; 
+            color: #334155; transition: all 0.3s; background: #f8fafc;
+        }
+        input[type="text"].main-input:focus { border-color: #0055AA; background: #fff; box-shadow: 0 0 0 4px rgba(0, 85, 170, 0.1); }
+        input[type="text"].main-input::placeholder { color: #cbd5e1; font-weight: normal; letter-spacing: 1px; }
+
+        /* v9.9 相機按鈕 */
+        .camera-btn {
+            padding: 0 20px; font-size: 24px; cursor: pointer;
+            background-color: #0055AA; color: white; border: none; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        .camera-btn:hover { background-color: #004499; }
+        .camera-btn.active { background-color: #dc2626; } /* 停止按鈕變紅 */
+
+        /* 相機視窗容器 */
+        #reader-container {
+            width: 100%; margin-bottom: 20px; display: none;
+            border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0;
+            background: #000;
+        }
+        #reader { width: 100%; }
+
+        .correction-box { background-color: #fff5f5; border-left: 5px solid #c62828; padding: 15px; border-radius: 4px; margin-bottom: 25px; display: none; }
+        .correction-title { font-weight: bold; color: #c62828; font-size: 18px; margin-bottom: 5px; }
+        .correction-btn { margin-top: 10px; background-color: #c62828; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        
+        .results-grid { display: grid; grid-template-columns: 1fr; gap: 25px; }
+        
+        .barcode-card { border-radius: 12px; padding: 30px; background: #fff; display: flex; flex-direction: column; align-items: center; position: relative; transition: all 0.3s; border: 1px solid #e2e8f0; }
+        .card-best-match { border: 2px solid #28a745; background: linear-gradient(to bottom, #f0fff4 0%, #ffffff 100%); box-shadow: 0 10px 25px rgba(40, 167, 69, 0.12); transform: scale(1.01); z-index: 10; }
+        .card-best-match::before { content: "🏆 最佳吻合：最接近條碼符號"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: #28a745; color: white; padding: 5px 18px; border-radius: 20px; font-size: 14px; font-weight: bold; box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3); white-space: nowrap; }
+        
+        .card-alternative { border: 1px dashed #cbd5e1; background-color: #fafafa; opacity: 0.9; }
+        .card-alternative::before { content: "備選參考"; position: absolute; top: 12px; left: 12px; background: #e2e8f0; color: #64748b; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+        
+        .card-warning { border: 2px solid #f59e0b; background-color: #fffbeb; }
+        .card-warning::after { content: "⚠️ 檢查碼異常"; position: absolute; top: -12px; right: 15px; background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        .card-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; }
+        .format-name { font-size: 24px; font-weight: 800; color: #1e293b; letter-spacing: -0.5px; }
+        .format-tag { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500; }
+        
+        .card-options { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; background: #f8fafc; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .card-options input { accent-color: #0055AA; width: 16px; height: 16px; cursor: pointer; }
+        
+        canvas { display: block; max-width: 100%; height: auto !important; margin-bottom: 20px; image-rendering: pixelated; background-color: white; padding: 15px; border-radius: 8px; border: 1px solid #f1f5f9; }
+        
+        .btn-group { display: flex; gap: 12px; width: 100%; margin-top: 10px; }
+        button { flex: 1; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 8px; color: #475569; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        button:hover { background-color: #f0f9ff; border-color: #0055AA; color: #0055AA; transform: translateY(-1px); }
+        
+        .edit-panel { width: 100%; display: none; flex-direction: column; gap: 12px; background: #f8fafc; padding: 20px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 20px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.03); }
+        .edit-input { width: 100%; padding: 10px; font-size: 18px; border: 2px solid #0055AA; border-radius: 6px; box-sizing: border-box; text-align: center; color: #334155; font-weight: bold;}
+        .edit-actions { display: flex; gap: 10px; }
+        .edit-actions button { flex: 1; padding: 10px; font-size: 13px; }
+        .btn-save { background-color: #0055AA; color: white !important; border: none; }
+        .btn-save:hover { background-color: #004499 !important; box-shadow: 0 4px 10px rgba(0, 85, 170, 0.2); }
+        
+        .error-overlay { display: none; width: 100%; padding: 25px; text-align: center; background: #fef2f2; border: 2px dashed #ef4444; border-radius: 10px; color: #b91c1c; margin-bottom: 20px; box-sizing: border-box; }
+        .error-title { font-weight: 800; font-size: 18px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .error-detail { font-size: 14px; color: #7f1d1d; margin-bottom: 20px; display: block; line-height: 1.6; }
+        .error-actions { display: flex; gap: 12px; justify-content: center; }
+        .btn-fix { background-color: #ef4444; color: white !important; border: none; }
+        .btn-fix:hover { background-color: #dc2626 !important; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2); }
+
+        .empty-state { color: #94a3b8; font-size: 16px; margin-top: 30px; text-align: center; font-weight: 500;}
+
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .main-container { padding: 20px; }
+            .header-row { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .status-badge { align-self: flex-start; font-size: 12px; padding: 6px 12px; }
+            .main-title { font-size: 24px; }
+            .sub-title { font-size: 18px; display: block; margin-left: 0; margin-top: 2px;}
+            input[type="text"].main-input { font-size: 20px; padding: 12px; }
+            .barcode-card { padding: 15px; }
+            .card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .card-options { width: 100%; box-sizing: border-box; justify-content: center;}
+            .btn-group { flex-direction: column; }
+            button { padding: 15px; font-size: 16px; }
+            .card-best-match::before { top: -12px; font-size: 12px; padding: 3px 12px; }
+            .card-alternative::before { position: static; display: inline-block; margin-bottom: 8px; background: #f1f5f9; color: #64748b; align-self: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="header-row">
+        <div class="title-group">
+            <div class="main-title">
+                條碼檢核 <span class="sub-title">What barcode</span>
+            </div>
+            <span id="versionTag" class="version-pill">Loading...</span>
+        </div>
+        
+        <div id="statusBadge" class="status-badge status-offline">
+            <span class="status-dot"></span> <span id="statusText">檢查中...</span>
+        </div>
+    </div>
+
+    <div id="reader-container">
+        <div id="reader"></div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="inputData" class="main-input" placeholder="請掃描條碼" autofocus>
+        <button id="cameraBtn" class="camera-btn" onclick="toggleCamera()" title="開啟相機掃描">📷</button>
+    </div>
+
+    <div id="correctionBox" class="correction-box">
+        <div class="correction-title">⚠️ 檢查碼錯誤</div>
+        <div id="correctionMsg" class="correction-desc"></div>
+        <div id="correctionBtns"></div>
+    </div>
+
+    <div id="resultsGrid" class="results-grid">
+        <div class="empty-state">等待輸入...</div>
+    </div>
+</div>
+
+<script>
+    const inputData = document.getElementById('inputData');
+    const resultsGrid = document.getElementById('resultsGrid');
+    const correctionBox = document.getElementById('correctionBox');
+    const correctionMsg = document.getElementById('correctionMsg');
+    const correctionBtns = document.getElementById('correctionBtns');
+    const statusBadge = document.getElementById('statusBadge');
+    
+    let debounceTimer;
+    let isScanning = false;
+    let scanResetTimer;
+    let lastKeyTime = 0;
+    const SCAN_GAP_TOLERANCE = 200; 
+
+    // v9.9 相機變數
+    let html5QrCode;
+    let isCameraRunning = false;
+
+    function updateVersionBadge() {
+        const now = new Date();
+        const pad = (num) => num.toString().padStart(2, '0');
+        const year = now.getFullYear();
+        const month = pad(now.getMonth() + 1);
+        const day = pad(now.getDate());
+        const hour = pad(now.getHours());
+        const minute = pad(now.getMinutes());
+        const versionString = `V.${year}.${month}.${day}.${hour}.${minute}`;
+        document.getElementById('versionTag').textContent = versionString;
+    }
+
+    function updateSystemStatus() {
+        updateVersionBadge();
+        if (typeof bwipjs === 'undefined') {
+            statusBadge.className = 'status-badge status-error';
+            document.getElementById('statusText').textContent = "核心載入失敗";
+            return;
+        }
+        if (navigator.onLine) {
+            statusBadge.className = 'status-badge status-online';
+            document.getElementById('statusText').textContent = "連線正常";
+        } else {
+            statusBadge.className = 'status-badge status-offline';
+            document.getElementById('statusText').textContent = "離線模式 (Ready)";
+        }
+        inputData.focus();
+        inputData.select();
+    }
+
+    window.onload = updateSystemStatus;
+    window.addEventListener('online', updateSystemStatus);
+    window.addEventListener('offline', updateSystemStatus);
+
+    // --- v9.9 相機邏輯 ---
+    function toggleCamera() {
+        const readerContainer = document.getElementById('reader-container');
+        const cameraBtn = document.getElementById('cameraBtn');
+
+        if (isCameraRunning) {
+            // 關閉相機
+            html5QrCode.stop().then(() => {
+                readerContainer.style.display = 'none';
+                cameraBtn.classList.remove('active');
+                cameraBtn.innerHTML = '📷'; // 回復圖示
+                isCameraRunning = false;
+                html5QrCode.clear(); // 清除記憶體
+            }).catch(err => {
+                console.error("無法停止相機", err);
+            });
+        } else {
+            // 開啟相機
+            readerContainer.style.display = 'block';
+            cameraBtn.classList.add('active');
+            cameraBtn.innerHTML = '⏹'; // 停止圖示
+            
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 150 }, aspectRatio: 1.0 };
+            
+            // 嘗試使用後置相機
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+            .then(() => {
+                isCameraRunning = true;
+            })
+            .catch(err => {
+                alert("無法啟動相機。請確認：\n1. 您已允許相機權限\n2. 網站必須使用 HTTPS 或 localhost");
+                readerContainer.style.display = 'none';
+                cameraBtn.classList.remove('active');
+            });
+        }
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        // 掃描成功：填入資料、停止相機、分析
+        inputData.value = decodedText;
+        toggleCamera(); // 自動關閉相機
+        analyzeAndRender(decodedText.toUpperCase()); // 執行分析
+        
+        // 播放提示音 (選擇性)
+        // let audio = new Audio('beep.mp3'); audio.play();
+    }
+
+    function onScanFailure(error) {
+        // 掃描中 (每幀都會呼叫，通常忽略)
+        // console.warn(`Code scan error = ${error}`);
+    }
+
+    // --- 既有邏輯 ---
+    document.addEventListener('keydown', (e) => {
+        if (e.target.classList.contains('edit-input')) return;
+        const now = Date.now();
+        const timeDiff = now - lastKeyTime;
+        lastKeyTime = now;
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+        if (timeDiff < SCAN_GAP_TOLERANCE) {
+            isScanning = true;
+            clearTimeout(scanResetTimer);
+            scanResetTimer = setTimeout(() => { isScanning = false; }, 300);
+            if (e.key === 'Enter') { e.preventDefault(); handleScanComplete(); } 
+        } else {
+            if (e.key === 'Enter' && e.target === inputData) { e.preventDefault(); handleManualEnter(); } else { isScanning = false; }
+        }
+    });
+
+    function handleScanComplete() {
+        isScanning = false; clearTimeout(debounceTimer);
+        let val = inputData.value; inputData.select(); analyzeAndRender(val.toUpperCase());
+    }
+
+    function handleManualEnter() {
+        clearTimeout(debounceTimer); inputData.select(); analyzeAndRender(inputData.value.trim().toUpperCase());
+    }
+
+    inputData.addEventListener('input', () => {
+        if (isScanning) return;
+        const text = inputData.value.trim().toUpperCase();
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { analyzeAndRender(text); }, 300);
+    });
+
+    function checkEAN8Checksum(text) {
+        if (!/^\d{8}$/.test(text)) return false;
+        let sum = 0;
+        for (let i = 0; i < 7; i++) { sum += parseInt(text[i]) * (i % 2 === 0 ? 3 : 1); }
+        let check = (10 - (sum % 10)) % 10;
+        return check === parseInt(text[7]);
+    }
+
+    function getCandidates(rawText) {
+        const cleanText = rawText.replace(/[-\s\*\(\)<>]/g, ''); 
+        const hasSpace = /\s/.test(rawText);
+        let list = [];
+
+        if (/^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) {
+             let score = 50; 
+             if (rawText.includes('*')) score += 200;
+             if (/[A-Z]/.test(rawText)) score += 30;  
+             if (rawText.length >= 12 && !rawText.includes('*')) score -= 30; 
+
+             list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', isStandard: true, score: score, type: 'Code 39' });
+        }
+
+        if (/^[\x00-\x7F]+$/.test(rawText)) {
+            let score = 40; 
+            if (/[a-z]/.test(rawText)) score += 100; 
+            if (/[!@#&]/.test(rawText)) score += 100; 
+            if (rawText.length >= 10) score += 60; 
+
+            list.push({ id: 'code128', name: 'Code 128', desc: '高密度/通用', isStandard: false, score: score, type: 'Code 128' });
+        }
+
+        if (/^\d+$/.test(cleanText) && !hasSpace) {
+            const len = cleanText.length;
+            if (len === 8) {
+                if (checkEAN8Checksum(cleanText)) list.push({ id: 'ean8', name: 'EAN-8', desc: '國際縮短碼', isStandard: true, score: 150, type: 'EAN-8' });
+            } 
+            else if (len === 6) list.push({ id: 'upce', name: 'UPC-E', desc: '美加縮短碼', isStandard: true, score: 60, type: 'UPC-E' });
+            else if (len === 12) list.push({ id: 'upca', name: 'UPC-A', desc: '美加標準碼', isStandard: true, score: 150, type: 'UPC-A' });
+            else if (len === 13) {
+                if (cleanText.startsWith('978') || cleanText.startsWith('979')) 
+                    list.push({ id: 'isbn', name: 'ISBN-13', desc: '書籍', isStandard: true, score: 160, type: 'ISBN' });
+                else 
+                    list.push({ id: 'ean13', name: 'GTIN-13', desc: '商品碼', isStandard: true, score: 150, type: 'EAN-13' });
+            }
+            else if (len === 14) list.push({ id: 'itf14', name: 'ITF-14', desc: '外箱碼', isStandard: true, score: 140, type: 'ITF-14' });
+        }
+
+        if (/^[A-D].*[A-D]$/.test(rawText)) list.push({ id: 'rationalizedCodabar', name: 'Codabar', desc: '圖書館', isStandard: true, score: 85, type: 'Codabar' });
+        if (/[^\x00-\x7F]/.test(rawText) || /^http/i.test(rawText)) list.push({ id: 'qrcode', name: 'QR Code', desc: '二維碼', isStandard: true, score: 200, type: 'QR Code' });
+
+        return list.sort((a, b) => b.score - a.score);
+    }
+
+    function analyzeAndRender(text) {
+        resultsGrid.innerHTML = "";
+        correctionBox.style.display = 'none';
+        if (!text) { resultsGrid.innerHTML = '<div class="empty-state">等待輸入...</div>'; return; }
+
+        const cleanText = text.replace(/[-\s\*\(\)<>]/g, ''); 
+        const candidates = getCandidates(text);
+        
+        candidates.forEach((cand, index) => {
+            let checkResult = { isValid: true, expected: null };
+            if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(cand.id)) {
+                checkResult = validateChecksum(cleanText, cand.type);
+            }
+            
+            let cardStyle = 'card-alternative';
+            if (index === 0) {
+                cardStyle = checkResult.isValid ? 'card-best-match' : 'card-warning';
+            } 
+
+            createBarcodeCard(text, cleanText, cand, cardStyle, checkResult.isValid, checkResult);
+        });
+    }
+
+    function validateChecksum(text, type) {
+        if (!/^\d+$/.test(text)) return { isValid: true, expected: null };
+        let dataWithoutCheck = text.slice(0, -1);
+        let inputCheck = parseInt(text.slice(-1));
+        let sum = 0, isThree = true;
+        for (let i = dataWithoutCheck.length - 1; i >= 0; i--) {
+            sum += parseInt(dataWithoutCheck[i]) * (isThree ? 3 : 1);
+            isThree = !isThree;
+        }
+        let calcCheck = (10 - sum % 10) % 10;
+        return inputCheck === calcCheck ? { isValid: true, expected: null } : { isValid: false, expected: calcCheck, correctCode: dataWithoutCheck + calcCheck, format: type };
+    }
+
+    function diagnoseError(formatId, rawText, cleanText) {
+        let title = "格式錯誤";
+        let msg = "內容不符合該條碼規範";
+        let fixCode = null;
+
+        if (['ean13', 'upca', 'ean8', 'itf14', 'isbn'].includes(formatId)) {
+            const requiredLen = { 'ean13':13, 'isbn':13, 'upca':12, 'ean8':8, 'itf14':14 }[formatId];
+            if (cleanText.length !== requiredLen) {
+                title = "長度不符";
+                msg = `此格式要求 <b>${requiredLen} 碼</b>數字，您輸入了 ${cleanText.length} 碼。`;
+            } else {
+                const check = validateChecksum(cleanText, formatId);
+                if (!check.isValid && check.expected !== null) {
+                    title = "檢查碼錯誤";
+                    msg = `尾數應為 <b>${check.expected}</b>，但您輸入了 <b>${cleanText.slice(-1)}</b>。`;
+                    fixCode = check.correctCode;
+                }
+            }
+        }
+        else if (formatId === 'code39') {
+            if (/[a-z]/.test(rawText)) {
+                title = "非法字元";
+                msg = "Code 39 不支援<b>小寫英文</b>，請轉為大寫。";
+                fixCode = rawText.toUpperCase();
+            } else if (/[!@#&]/.test(rawText)) {
+                title = "非法符號";
+                msg = "Code 39 不支援特殊符號，請改用 Code 128。";
+            }
+        }
+        return { title, msg, fixCode };
+    }
+
+    function toggleEditMode(btn) {
+        const card = btn.closest('.barcode-card');
+        const editPanel = card.querySelector('.edit-panel');
+        const canvas = card.querySelector('canvas');
+        const errorOverlay = card.querySelector('.error-overlay');
+        const btnGroup = card.querySelector('.btn-group');
+
+        if (editPanel.style.display === 'flex') {
+            editPanel.style.display = 'none';
+            if(errorOverlay.style.display !== 'block') {
+                canvas.style.display = 'block';
+                btnGroup.style.display = 'flex';
+            }
+        } else {
+            editPanel.style.display = 'flex';
+            canvas.style.display = 'none';
+            errorOverlay.style.display = 'none';
+            btnGroup.style.display = 'none';
+            const input = editPanel.querySelector('.edit-input');
+            input.focus();
+            input.select();
+        }
+    }
+
+    window.quickFixCard = function(btn, newCode, formatId) {
+        const card = btn.closest('.barcode-card');
+        const input = card.querySelector('.edit-input');
+        input.value = newCode; 
+        const saveBtn = card.querySelector('.btn-save');
+        applyCardEdit(saveBtn, formatId);
+    }
+
+    function applyCardEdit(btn, formatId) {
+        const card = btn.closest('.barcode-card');
+        const editInput = card.querySelector('.edit-input');
+        const canvas = card.querySelector('canvas');
+        const errorOverlay = card.querySelector('.error-overlay');
+        const btnGroup = card.querySelector('.btn-group');
+        const checkbox = card.querySelector('.show-symbols-check');
+        
+        const newRawText = editInput.value.trim(); 
+        const newCleanText = newRawText.replace(/[-\s\*\(\)<>]/g, '');
+        
+        card.querySelector('.edit-panel').style.display = 'none';
+        
+        const showSymbols = checkbox ? checkbox.checked : true;
+        const success = drawBarcodeOnCanvas(canvas, formatId, newRawText, newCleanText, showSymbols);
+
+        const oldWarn = card.querySelector('.dynamic-warning');
+        if(oldWarn) oldWarn.remove();
+
+        if (success) {
+            canvas.style.display = 'block';
+            errorOverlay.style.display = 'none';
+            btnGroup.style.display = 'flex';
+            
+            const pngBtn = btnGroup.querySelector('button[onclick*="downloadPNG"]');
+            pngBtn.setAttribute('onclick', `downloadPNG(this, '${newRawText.replace(/'/g, "\\'")}', '${formatId}')`);
+            
+            if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) {
+                const checkResult = validateChecksum(newCleanText, formatId);
+                if (!checkResult.isValid && checkResult.expected !== null) {
+                    const warnDiv = document.createElement('div');
+                    warnDiv.className = 'dynamic-warning';
+                    warnDiv.style.cssText = 'color: #e65100; font-weight: bold; margin-bottom: 10px; font-size: 14px;';
+                    warnDiv.innerHTML = `⚠️ 檢查碼錯誤 (應為 ${checkResult.expected}) <button style="padding:2px 8px; margin-left:5px; font-size:12px;" onclick="quickFixCard(this, '${checkResult.correctCode}', '${formatId}')">修正</button>`;
+                    card.insertBefore(warnDiv, canvas);
+                    canvas.style.opacity = '0.6';
+                } else {
+                    canvas.style.opacity = '1';
+                }
+            }
+        } else {
+            canvas.style.display = 'none';
+            btnGroup.style.display = 'none';
+            
+            const diagnosis = diagnoseError(formatId, newRawText, newCleanText);
+            
+            let actionButtons = `<button onclick="toggleEditMode(this)">✏️ 繼續修改</button>`;
+            if (diagnosis.fixCode) {
+                actionButtons += `<button class="btn-fix" onclick="quickFixCard(this, '${diagnosis.fixCode}', '${formatId}')">✨ 自動修正為 ${diagnosis.fixCode}</button>`;
+            }
+
+            errorOverlay.style.display = 'block';
+            errorOverlay.innerHTML = `
+                <span class="error-title">🚫 ${diagnosis.title}</span>
+                <span class="error-detail">${diagnosis.msg}</span>
+                <div class="error-actions">${actionButtons}</div>
+            `;
+        }
+    }
+
+    function showCorrectionUIFromCard(checkResult) {
+        correctionMsg.innerHTML = `格式：<b>${checkResult.format}</b><br>錯誤：檢查碼應為 <b>${checkResult.expected}</b>。`;
+        correctionBtns.innerHTML = `<button class="correction-btn" onclick="applyCorrection('${checkResult.correctCode}')">✨ 點此修正為：${checkResult.correctCode}</button>`;
+        correctionBox.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    window.applyCorrection = function(newCode) {
+        inputData.value = newCode; handleManualEnter(); inputData.focus();
+    }
+
+    function createBarcodeCard(rawText, cleanText, cand, styleClass, isValid, checkResult) {
+        const card = document.createElement('div'); card.className = `barcode-card ${styleClass}`;
+        
+        let showToggle = (cand.id === 'code39') || /[\*<>]/.test(rawText);
+        let toggleHTML = showToggle ? `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" checked onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示起止符號</label></div>` : '';
+        
+        card.innerHTML = `
+            <div class="card-header">
+                <div><span class="format-name">${cand.name}</span><div class="format-tag">${cand.desc}</div></div>
+                ${toggleHTML}
+            </div>
+            
+            <div class="edit-panel">
+                <input type="text" class="edit-input" value="${rawText}">
+                <div class="edit-actions">
+                    <button class="btn-save" onclick="applyCardEdit(this, '${cand.id}')">確認修改</button>
+                    <button onclick="toggleEditMode(this)">取消</button>
+                </div>
+            </div>
+            
+            <div class="error-overlay"></div>
+        `;
+        
+        const canvas = document.createElement('canvas'); card.appendChild(canvas);
+        
+        if (!isValid && cand.isStandard && checkResult && checkResult.expected !== null) {
+            const warn = document.createElement('div'); 
+            warn.className = 'dynamic-warning';
+            warn.style.cssText = 'color: #e65100; font-weight: bold; margin-bottom: 10px; font-size: 14px;';
+            warn.innerHTML = `⚠️ 檢查碼錯誤 (應為 ${checkResult.expected}) <button style="padding:2px 8px; margin-left:5px; font-size:12px;" onclick="quickFixCard(this, '${checkResult.correctCode}', '${cand.id}')">修正</button>`;
+            card.appendChild(warn);
+            canvas.style.opacity = '0.6';
+        }
+
+        const btnGroup = document.createElement('div'); btnGroup.className = 'btn-group';
+        btnGroup.innerHTML = `
+            <button onclick="toggleEditMode(this)">✏️ 修改內容</button>
+            <button onclick="downloadPNG(this, '${rawText}', '${cand.name}')">⬇ PNG 高清無損</button>
+            <button onclick="downloadSVGFromCard(this, '${cand.name}')">⬇ SVG 向量</button>
+        `;
+        card.appendChild(btnGroup);
+        
+        if(drawBarcodeOnCanvas(canvas, cand.id, rawText, cleanText, true)) {
+            resultsGrid.appendChild(card);
+        }
+    }
+
+    window.updateCanvas = function(cb, fid, raw, clean) {
+        drawBarcodeOnCanvas(cb.closest('.barcode-card').querySelector('canvas'), fid, raw, clean, cb.checked);
+    }
+
+    function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols) {
+        try {
+            let processedText = rawText;
+            if (formatId === 'code39') processedText = rawText.toUpperCase().replace(/\*/g, '');
+            else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) processedText = cleanText;
+
+            let drawOpts = { bcid: formatId, scale: 3, includetext: true, textsize: 13, text: processedText };
+            let isGS1 = ['ean13', 'upca', 'ean8', 'isbn'].includes(formatId);
+            
+            let displayText = !showSymbols ? rawText.replace(/[\*<>]/g, '') : rawText;
+            if (showSymbols && formatId === 'code39' && !displayText.includes('*')) displayText = `*${displayText}*`;
+
+            if (isGS1) {
+                drawOpts.height = 25;
+                if (showSymbols && (displayText.includes('<') || displayText.includes('>'))) drawOpts.alttext = displayText;
+            } else if (formatId === 'code39') {
+                drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
+            } else if (formatId === 'itf14') {
+                drawOpts.height = 32; drawOpts.bearerbars = true; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
+            } else {
+                drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
+            }
+            if (formatId === 'qrcode') { drawOpts.scale = 5; drawOpts.includetext = false; delete drawOpts.height; }
+
+            canvas.dataset.drawOpts = JSON.stringify(drawOpts);
+            bwipjs.toCanvas(canvas, drawOpts);
+            return true;
+        } catch (e) { return false; }
+    }
+
+    // v9.7 優化：下載安全機制
+    window.downloadPNG = function(btn, text, suffix) {
+        const canvas = btn.closest('.barcode-card').querySelector('canvas');
+        if (!canvas || !canvas.dataset.drawOpts) return;
+        
+        let opts = JSON.parse(canvas.dataset.drawOpts);
+        
+        const createHighRes = (scaleFactor) => {
+            opts.scale = scaleFactor;
+            const offscreenCanvas = document.createElement('canvas');
+            try {
+                bwipjs.toCanvas(offscreenCanvas, opts);
+                const a = document.createElement('a');
+                a.href = offscreenCanvas.toDataURL('image/png');
+                a.download = `${text}_${suffix}_HD.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                return true;
+            } catch (e) {
+                console.warn(`Scale ${scaleFactor} failed.`);
+                return false;
+            }
+        };
+
+        if (!createHighRes(9)) {
+            if (!createHighRes(3)) {
+                alert("圖片生成失敗，可能是記憶體不足。");
+            }
+        }
+    }
+    
+    window.downloadSVGFromCard = function(btn, formatName) {
+        const c = btn.closest('.barcode-card').querySelector('canvas');
+        if(c && c.dataset.drawOpts) downloadSVG(JSON.parse(c.dataset.drawOpts), formatName);
+    }
+    
+    window.downloadSVG = function(opts, fname) {
+        try {
+            let s = bwipjs.toSVG(opts);
+            if (!s.includes('shape-rendering')) s = s.replace('<svg', '<svg shape-rendering="crispEdges"');
+            if (!s.startsWith('<?xml')) s = '<?xml version="1.0" standalone="no"?>\n' + s;
+            const b = new Blob([s], {type: "image/svg+xml;charset=utf-8"});
+            const u = URL.createObjectURL(b), a = document.createElement('a');
+            a.href = u; a.download = `${opts.text}_${fname}.svg`; a.click(); setTimeout(() => URL.revokeObjectURL(u), 1000);
+        } catch (e) { alert("SVG Error: " + e.message); }
+    }
+</script>
+</body>
+</html>
