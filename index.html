@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.2)</title>
+    <title>條碼檢核 What barcode (v10.3)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -89,22 +89,21 @@
         .card-options input { accent-color: #0055AA; width: 16px; height: 16px; cursor: pointer; }
         
         canvas { 
-            display: block; max-width: 100%; height: auto !important; margin-bottom: 20px; 
+            display: block; max-width: 100%; height: auto !important; margin-bottom: 10px; 
             image-rendering: pixelated; background-color: white; padding: 15px; 
             border-radius: 8px; border: 1px solid #f1f5f9; 
         }
 
-        /* v10.2 QR 內容顯示區樣式 */
         .qr-content {
             width: 100%;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             padding: 12px;
             background-color: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             font-size: 16px;
             color: #334155;
-            word-break: break-all; /* 防止長網址破版 */
+            word-break: break-all;
             text-align: center;
             font-family: 'JetBrains Mono', monospace;
         }
@@ -453,19 +452,19 @@
         const canvas = card.querySelector('canvas');
         const errorOverlay = card.querySelector('.error-overlay');
         const btnGroup = card.querySelector('.btn-group');
-        const qrContent = card.querySelector('.qr-content'); // v10.2: 也要控制 QR 內容顯示
+        const qrContent = card.querySelector('.qr-content');
 
         if (editPanel.style.display === 'flex') {
             editPanel.style.display = 'none';
             if(errorOverlay.style.display !== 'block') {
                 canvas.style.display = 'block';
-                if(qrContent) qrContent.style.display = 'block'; // 恢復 QR 內容
+                if(qrContent) qrContent.style.display = 'block';
                 btnGroup.style.display = 'flex';
             }
         } else {
             editPanel.style.display = 'flex';
             canvas.style.display = 'none';
-            if(qrContent) qrContent.style.display = 'none'; // 隱藏 QR 內容
+            if(qrContent) qrContent.style.display = 'none';
             errorOverlay.style.display = 'none';
             btnGroup.style.display = 'none';
             const input = editPanel.querySelector('.edit-input');
@@ -507,7 +506,7 @@
             errorOverlay.style.display = 'none';
             btnGroup.style.display = 'flex';
             
-            // v10.2: 更新 QR 文字區塊
+            // v10.3: 更新 QR 文字區塊
             if (formatId === 'qrcode') {
                 let qrDiv = card.querySelector('.qr-content');
                 if (!qrDiv) {
@@ -515,7 +514,7 @@
                     qrDiv.className = 'qr-content';
                     card.insertBefore(qrDiv, btnGroup);
                 }
-                qrDiv.style.display = 'block'; // 確保顯示
+                qrDiv.style.display = 'block';
                 
                 if (newRawText.match(/^https?:\/\//i)) {
                     qrDiv.innerHTML = `<a href="${newRawText}" target="_blank" rel="noopener noreferrer">🔗 ${newRawText}</a>`;
@@ -597,7 +596,7 @@
         
         const canvas = document.createElement('canvas'); card.appendChild(canvas);
         
-        // v10.2: 初始 QR 內容生成
+        // v10.3: QR 內容區塊生成 (圖片內不含字，字移到這裡)
         if (cand.id === 'qrcode') {
             const qrDiv = document.createElement('div');
             qrDiv.className = 'qr-content';
@@ -658,11 +657,13 @@
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             }
             
-            // v10.2: QR 維持不包含內文 (因為已經有外文顯示)
+            // v10.3: 純淨 QR 強制設定
             if (formatId === 'qrcode') { 
                 drawOpts.scale = 12; 
                 drawOpts.includetext = false; 
                 delete drawOpts.height; 
+                // [關鍵] 強制刪除 alttext，確保圖片內絕對無文字
+                delete drawOpts.alttext;
             }
 
             canvas.dataset.drawOpts = JSON.stringify(drawOpts);
