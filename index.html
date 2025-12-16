@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v9.9)</title>
+    <title>條碼檢核 What barcode (v10.0)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -34,15 +34,17 @@
         .status-error { background-color: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: currentColor; box-shadow: 0 0 5px currentColor; }
 
-        /* 輸入區塊修改為 Flex 以容納相機按鈕 */
+        /* v10.0 輸入區塊優化 */
         .input-area { 
             position: sticky; top: 0; background: white; z-index: 100; 
             padding-bottom: 20px; margin-bottom: 10px; 
-            display: flex; gap: 10px;
+            display: flex; gap: 10px; align-items: stretch; /* 讓高度一致 */
         }
         
         input[type="text"].main-input { 
-            flex: 1; padding: 18px; font-size: 28px; text-align: center; 
+            flex: 1; /* 自動佔滿剩餘空間 */
+            min-width: 0; /* 防止被內容撐爆 */
+            padding: 18px; font-size: 28px; text-align: center; 
             border: 2px solid #e2e8f0; border-radius: 12px; outline: none; 
             font-weight: bold; letter-spacing: 3px; box-sizing: border-box; 
             color: #334155; transition: all 0.3s; background: #f8fafc;
@@ -50,21 +52,20 @@
         input[type="text"].main-input:focus { border-color: #0055AA; background: #fff; box-shadow: 0 0 0 4px rgba(0, 85, 170, 0.1); }
         input[type="text"].main-input::placeholder { color: #cbd5e1; font-weight: normal; letter-spacing: 1px; }
 
-        /* v9.9 相機按鈕 */
+        /* v10.0 相機按鈕 PC 版設定 */
         .camera-btn {
-            padding: 0 20px; font-size: 24px; cursor: pointer;
+            padding: 0 25px; font-size: 24px; cursor: pointer;
             background-color: #0055AA; color: white; border: none; border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
-            transition: 0.2s;
+            transition: 0.2s; white-space: nowrap; flex-shrink: 0; /* 防止按鈕被壓縮 */
         }
         .camera-btn:hover { background-color: #004499; }
-        .camera-btn.active { background-color: #dc2626; } /* 停止按鈕變紅 */
+        .camera-btn.active { background-color: #dc2626; }
 
-        /* 相機視窗容器 */
         #reader-container {
             width: 100%; margin-bottom: 20px; display: none;
             border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0;
-            background: #000;
+            background: #000; position: relative;
         }
         #reader { width: 100%; }
 
@@ -113,6 +114,7 @@
 
         .empty-state { color: #94a3b8; font-size: 16px; margin-top: 30px; text-align: center; font-weight: 500;}
 
+        /* --- v10.0 RWD 關鍵修正 --- */
         @media (max-width: 600px) {
             body { padding: 10px; }
             .main-container { padding: 20px; }
@@ -120,7 +122,20 @@
             .status-badge { align-self: flex-start; font-size: 12px; padding: 6px 12px; }
             .main-title { font-size: 24px; }
             .sub-title { font-size: 18px; display: block; margin-left: 0; margin-top: 2px;}
-            input[type="text"].main-input { font-size: 20px; padding: 12px; }
+            
+            /* 輸入區在手機上的調整 */
+            .input-area { gap: 8px; }
+            input[type="text"].main-input { 
+                font-size: 18px; padding: 12px; letter-spacing: 1px;
+            }
+            /* 相機按鈕變身：縮小 padding，保持正方形，避免被擠出 */
+            .camera-btn { 
+                padding: 0; 
+                width: 50px; /* 固定寬度 */
+                flex: 0 0 50px; /* 禁止壓縮與放大 */
+                font-size: 20px; 
+            }
+
             .barcode-card { padding: 15px; }
             .card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
             .card-options { width: 100%; box-sizing: border-box; justify-content: center;}
@@ -181,7 +196,7 @@
     let lastKeyTime = 0;
     const SCAN_GAP_TOLERANCE = 200; 
 
-    // v9.9 相機變數
+    // 相機變數
     let html5QrCode;
     let isCameraRunning = false;
 
@@ -219,32 +234,29 @@
     window.addEventListener('online', updateSystemStatus);
     window.addEventListener('offline', updateSystemStatus);
 
-    // --- v9.9 相機邏輯 ---
+    // --- 相機邏輯 ---
     function toggleCamera() {
         const readerContainer = document.getElementById('reader-container');
         const cameraBtn = document.getElementById('cameraBtn');
 
         if (isCameraRunning) {
-            // 關閉相機
             html5QrCode.stop().then(() => {
                 readerContainer.style.display = 'none';
                 cameraBtn.classList.remove('active');
-                cameraBtn.innerHTML = '📷'; // 回復圖示
+                cameraBtn.innerHTML = '📷'; 
                 isCameraRunning = false;
-                html5QrCode.clear(); // 清除記憶體
+                html5QrCode.clear(); 
             }).catch(err => {
                 console.error("無法停止相機", err);
             });
         } else {
-            // 開啟相機
             readerContainer.style.display = 'block';
             cameraBtn.classList.add('active');
-            cameraBtn.innerHTML = '⏹'; // 停止圖示
+            cameraBtn.innerHTML = '⏹'; 
             
             html5QrCode = new Html5Qrcode("reader");
             const config = { fps: 10, qrbox: { width: 250, height: 150 }, aspectRatio: 1.0 };
             
-            // 嘗試使用後置相機
             html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
             .then(() => {
                 isCameraRunning = true;
@@ -258,21 +270,15 @@
     }
 
     function onScanSuccess(decodedText, decodedResult) {
-        // 掃描成功：填入資料、停止相機、分析
         inputData.value = decodedText;
-        toggleCamera(); // 自動關閉相機
-        analyzeAndRender(decodedText.toUpperCase()); // 執行分析
-        
-        // 播放提示音 (選擇性)
-        // let audio = new Audio('beep.mp3'); audio.play();
+        toggleCamera(); 
+        analyzeAndRender(decodedText.toUpperCase()); 
     }
 
     function onScanFailure(error) {
-        // 掃描中 (每幀都會呼叫，通常忽略)
         // console.warn(`Code scan error = ${error}`);
     }
 
-    // --- 既有邏輯 ---
     document.addEventListener('keydown', (e) => {
         if (e.target.classList.contains('edit-input')) return;
         const now = Date.now();
@@ -610,7 +616,6 @@
         } catch (e) { return false; }
     }
 
-    // v9.7 優化：下載安全機制
     window.downloadPNG = function(btn, text, suffix) {
         const canvas = btn.closest('.barcode-card').querySelector('canvas');
         if (!canvas || !canvas.dataset.drawOpts) return;
