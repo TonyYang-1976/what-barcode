@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.3)</title>
+    <title>條碼檢核 What barcode (v10.4)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -22,11 +22,16 @@
             border-top: 5px solid #0055AA; 
         }
 
-        .header-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; border-bottom: 2px solid #eaeff2; padding-bottom: 20px; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #eaeff2; padding-bottom: 20px; }
         .title-group { display: flex; flex-direction: column; gap: 5px; }
-        .main-title { font-size: 32px; font-weight: 900; letter-spacing: 1px; background: linear-gradient(135deg, #002B5B 0%, #0055AA 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.2; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        
+        .main-title { 
+            font-size: 32px; font-weight: 900; letter-spacing: 1px; 
+            background: linear-gradient(135deg, #002B5B 0%, #0055AA 100%); 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
+            line-height: 1.2; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; 
+        }
         .sub-title { font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 300; color: #5f6c7b; margin-left: 2px; }
-        .version-pill { font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 12px; color: #64748b; background-color: #f1f5f9; padding: 4px 10px; border-radius: 20px; border: 1px solid #cbd5e1; align-self: flex-start; margin-top: 8px; display: inline-block; letter-spacing: -0.5px; }
         
         .status-badge { padding: 8px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); white-space: nowrap; }
         .status-online { background-color: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
@@ -172,7 +177,6 @@
             <div class="main-title">
                 條碼檢核 <span class="sub-title">What barcode</span>
             </div>
-            <span id="versionTag" class="version-pill">Loading...</span>
         </div>
         
         <div id="statusBadge" class="status-badge status-offline">
@@ -217,20 +221,10 @@
     let html5QrCode;
     let isCameraRunning = false;
 
-    function updateVersionBadge() {
-        const now = new Date();
-        const pad = (num) => num.toString().padStart(2, '0');
-        const year = now.getFullYear();
-        const month = pad(now.getMonth() + 1);
-        const day = pad(now.getDate());
-        const hour = pad(now.getHours());
-        const minute = pad(now.getMinutes());
-        const versionString = `V.${year}.${month}.${day}.${hour}.${minute}`;
-        document.getElementById('versionTag').textContent = versionString;
-    }
+    // v10.4: 移除 updateVersionBadge 函式
 
     function updateSystemStatus() {
-        updateVersionBadge();
+        // updateVersionBadge(); // 移除呼叫
         if (typeof bwipjs === 'undefined') {
             statusBadge.className = 'status-badge status-error';
             document.getElementById('statusText').textContent = "核心載入失敗";
@@ -506,7 +500,7 @@
             errorOverlay.style.display = 'none';
             btnGroup.style.display = 'flex';
             
-            // v10.3: 更新 QR 文字區塊
+            // 更新 QR 文字區塊
             if (formatId === 'qrcode') {
                 let qrDiv = card.querySelector('.qr-content');
                 if (!qrDiv) {
@@ -596,7 +590,6 @@
         
         const canvas = document.createElement('canvas'); card.appendChild(canvas);
         
-        // v10.3: QR 內容區塊生成 (圖片內不含字，字移到這裡)
         if (cand.id === 'qrcode') {
             const qrDiv = document.createElement('div');
             qrDiv.className = 'qr-content';
@@ -657,13 +650,11 @@
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             }
             
-            // v10.3: 純淨 QR 強制設定
             if (formatId === 'qrcode') { 
                 drawOpts.scale = 12; 
                 drawOpts.includetext = false; 
                 delete drawOpts.height; 
-                // [關鍵] 強制刪除 alttext，確保圖片內絕對無文字
-                delete drawOpts.alttext;
+                delete drawOpts.alttext; // 純淨 QR 影像
             }
 
             canvas.dataset.drawOpts = JSON.stringify(drawOpts);
