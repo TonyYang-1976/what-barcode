@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.4)</title>
+    <title>條碼檢核 What barcode (v10.5)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -22,18 +22,45 @@
             border-top: 5px solid #0055AA; 
         }
 
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #eaeff2; padding-bottom: 20px; }
-        .title-group { display: flex; flex-direction: column; gap: 5px; }
+        /* --- v10.5 Header 佈局核心修正 --- */
+        .header-row { 
+            display: flex; 
+            justify-content: space-between; /* 標題左，燈號右 */
+            align-items: center; /* 垂直置中對齊 */
+            margin-bottom: 30px; 
+            border-bottom: 2px solid #eaeff2; 
+            padding-bottom: 20px; 
+            gap: 10px; /* 防止太擠 */
+        }
+
+        .title-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 2px; /* 標題與副標題緊湊一點 */
+        }
         
         .main-title { 
             font-size: 32px; font-weight: 900; letter-spacing: 1px; 
             background: linear-gradient(135deg, #002B5B 0%, #0055AA 100%); 
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
-            line-height: 1.2; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; 
+            line-height: 1.1; 
+            display: flex; flex-direction: column; /* 電腦版讓中英文分行顯示更整齊，或保持 row 視需求 */
         }
-        .sub-title { font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 300; color: #5f6c7b; margin-left: 2px; }
+        /* 電腦版將副標題放在同一行或下方皆可，這裡設定為 inline 讓它跟隨 */
+        .main-title span { display: inline-block; }
+
+        .sub-title { 
+            font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 300; color: #5f6c7b; 
+            margin-left: 0; 
+        }
         
-        .status-badge { padding: 8px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); white-space: nowrap; }
+        /* 狀態燈樣式 */
+        .status-badge { 
+            padding: 8px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; 
+            display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+            white-space: nowrap; /* 禁止文字換行，確保膠囊形狀 */
+            flex-shrink: 0; /* 禁止被壓縮 */
+        }
         .status-online { background-color: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
         .status-offline { background-color: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
         .status-error { background-color: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
@@ -149,17 +176,28 @@
 
         .empty-state { color: #94a3b8; font-size: 16px; margin-top: 30px; text-align: center; font-weight: 500;}
 
+        /* --- v10.5 RWD 優化 --- */
         @media (max-width: 600px) {
             body { padding: 10px; }
             .main-container { padding: 20px; }
-            .header-row { flex-direction: column; align-items: flex-start; gap: 15px; }
-            .status-badge { align-self: flex-start; font-size: 12px; padding: 6px 12px; }
-            .main-title { font-size: 24px; }
-            .sub-title { font-size: 18px; display: block; margin-left: 0; margin-top: 2px;}
+            
+            /* 強制 Header 在手機上也是橫向排列 (Row) */
+            .header-row { 
+                flex-direction: row; 
+                align-items: center; 
+                justify-content: space-between; 
+            }
+            
+            /* 調整字體大小以適應窄螢幕 */
+            .main-title { font-size: 20px; }
+            .sub-title { font-size: 14px; }
+            .status-badge { font-size: 11px; padding: 4px 10px; }
+
             .input-area { gap: 8px; }
             input[type="text"].main-input { font-size: 18px; padding: 12px; letter-spacing: 1px; }
             .camera-btn { padding: 0; width: 50px; flex: 0 0 50px; font-size: 20px; }
             .barcode-card { padding: 15px; }
+            
             .card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
             .card-options { width: 100%; box-sizing: border-box; justify-content: center;}
             .btn-group { flex-direction: column; }
@@ -221,10 +259,7 @@
     let html5QrCode;
     let isCameraRunning = false;
 
-    // v10.4: 移除 updateVersionBadge 函式
-
     function updateSystemStatus() {
-        // updateVersionBadge(); // 移除呼叫
         if (typeof bwipjs === 'undefined') {
             statusBadge.className = 'status-badge status-error';
             document.getElementById('statusText').textContent = "核心載入失敗";
@@ -500,7 +535,6 @@
             errorOverlay.style.display = 'none';
             btnGroup.style.display = 'flex';
             
-            // 更新 QR 文字區塊
             if (formatId === 'qrcode') {
                 let qrDiv = card.querySelector('.qr-content');
                 if (!qrDiv) {
@@ -654,7 +688,7 @@
                 drawOpts.scale = 12; 
                 drawOpts.includetext = false; 
                 delete drawOpts.height; 
-                delete drawOpts.alttext; // 純淨 QR 影像
+                delete drawOpts.alttext; 
             }
 
             canvas.dataset.drawOpts = JSON.stringify(drawOpts);
