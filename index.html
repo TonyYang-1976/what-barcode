@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.7)</title>
+    <title>條碼檢核 What barcode (v10.8)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -22,21 +22,14 @@
             border-top: 5px solid #0055AA; 
         }
 
-        .header-row { 
-            display: flex; justify-content: space-between; align-items: center; 
-            margin-bottom: 30px; border-bottom: 2px solid #eaeff2; padding-bottom: 20px; 
-        }
-
-        .title-group { 
-            display: flex; flex-direction: column; width: fit-content; 
-        }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #eaeff2; padding-bottom: 20px; }
+        .title-group { display: flex; flex-direction: column; width: fit-content; }
         
         .main-title { 
             font-size: 32px; font-weight: 900; letter-spacing: 0px; 
             background: linear-gradient(135deg, #002B5B 0%, #0055AA 100%); 
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
-            line-height: 1.1; 
-            display: flex; justify-content: space-between; width: 100%; 
+            line-height: 1.1; display: flex; justify-content: space-between; width: 100%; 
         }
         
         .sub-title { 
@@ -50,11 +43,7 @@
         .status-error { background-color: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: currentColor; box-shadow: 0 0 5px currentColor; }
 
-        .input-area { 
-            position: sticky; top: 0; background: white; z-index: 100; 
-            padding-bottom: 20px; margin-bottom: 10px; 
-            display: flex; gap: 10px; align-items: stretch;
-        }
+        .input-area { position: sticky; top: 0; background: white; z-index: 100; padding-bottom: 20px; margin-bottom: 10px; display: flex; gap: 10px; align-items: stretch; }
         
         input[type="text"].main-input { 
             flex: 1; min-width: 0; padding: 18px; font-size: 28px; text-align: center; 
@@ -64,10 +53,7 @@
         }
         input[type="text"].main-input:focus { border-color: #0055AA; background: #fff; box-shadow: 0 0 0 4px rgba(0, 85, 170, 0.1); }
         input[type="text"].main-input::placeholder { color: #cbd5e1; font-weight: normal; letter-spacing: 1px; }
-
-        input[type="text"].main-input.ime-warning {
-            border-color: #dc2626; background-color: #fef2f2; color: #dc2626;
-        }
+        input[type="text"].main-input.ime-warning { border-color: #dc2626; background-color: #fef2f2; color: #dc2626; }
         input[type="text"].main-input.ime-warning::placeholder { color: #ef4444; font-weight: bold; }
 
         .camera-btn {
@@ -79,11 +65,7 @@
         .camera-btn:hover { background-color: #004499; }
         .camera-btn.active { background-color: #dc2626; }
 
-        #reader-container {
-            width: 100%; margin-bottom: 20px; display: none;
-            border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0;
-            background: #000; position: relative;
-        }
+        #reader-container { width: 100%; margin-bottom: 20px; display: none; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; background: #000; position: relative; }
         #reader { width: 100%; }
 
         .correction-box { background-color: #fff5f5; border-left: 5px solid #c62828; padding: 15px; border-radius: 4px; margin-bottom: 25px; display: none; }
@@ -109,28 +91,14 @@
         .card-options { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; background: #f8fafc; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; }
         .card-options input { accent-color: #0055AA; width: 16px; height: 16px; cursor: pointer; }
         
-        canvas { 
-            display: block; max-width: 100%; height: auto !important; margin-bottom: 10px; 
-            image-rendering: pixelated; background-color: white; padding: 15px; 
-            border-radius: 8px; border: 1px solid #f1f5f9; 
-        }
+        canvas { display: block; max-width: 100%; height: auto !important; margin-bottom: 10px; image-rendering: pixelated; background-color: white; padding: 15px; border-radius: 8px; border: 1px solid #f1f5f9; }
 
-        .qr-content {
-            width: 100%; margin-bottom: 20px; padding: 12px;
-            background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
-            font-size: 16px; color: #334155; word-break: break-all; text-align: center;
-            font-family: 'JetBrains Mono', monospace;
-        }
+        .qr-content { width: 100%; margin-bottom: 20px; padding: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 16px; color: #334155; word-break: break-all; text-align: center; font-family: 'JetBrains Mono', monospace; }
         .qr-content a { color: #0055AA; text-decoration: none; font-weight: bold; display: inline-block; transition: 0.2s; }
         .qr-content a:hover { text-decoration: underline; color: #003366; }
         
         .btn-group { display: flex; gap: 12px; width: 100%; margin-top: 10px; }
-        button { 
-            flex: 1; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; 
-            background-color: #fff; border: 1px solid #cbd5e1; border-radius: 8px; 
-            color: #475569; transition: all 0.2s; 
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-        }
+        button { flex: 1; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 8px; color: #475569; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
         button:hover { background-color: #f0f9ff; border-color: #0055AA; color: #0055AA; transform: translateY(-1px); }
         
         .edit-panel { width: 100%; display: none; flex-direction: column; gap: 12px; background: #f8fafc; padding: 20px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 20px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.03); }
@@ -262,7 +230,6 @@
             cameraBtn.classList.add('active');
             cameraBtn.innerHTML = '⏹'; 
             
-            // v10.7 自動捲動：當開啟相機時，平滑捲動到相機視窗
             readerContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
             html5QrCode = new Html5Qrcode("reader");
@@ -316,7 +283,6 @@
     inputData.addEventListener('input', () => {
         if (isScanning) return;
         
-        // 輸入法防呆
         if (/[^\x00-\x7F]/.test(inputData.value)) {
             inputData.value = '';
             inputData.placeholder = "⚠️ 請切換成英文輸入碼避免亂碼";
@@ -340,11 +306,13 @@
         return check === parseInt(text[7]);
     }
 
+    // --- v10.8 修正：候選人邏輯與權重調整 ---
     function getCandidates(rawText) {
         const cleanText = rawText.replace(/[-\s\*\(\)<>]/g, ''); 
         const hasSpace = /\s/.test(rawText);
         let list = [];
 
+        // 1. Code 39
         if (/^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) {
              let score = 50; 
              if (rawText.includes('*')) score += 200;
@@ -354,17 +322,21 @@
              list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', isStandard: true, score: score, type: 'Code 39' });
         }
 
+        // 2. Code 128
         if (/^[\x00-\x7F]+$/.test(rawText)) {
             let score = 40; 
             if (/[a-z]/.test(rawText)) score += 100; 
             if (/[!@#&]/.test(rawText)) score += 100; 
             if (rawText.length >= 10) score += 60; 
+            // Max score ~100-110
 
             list.push({ id: 'code128', name: 'Code 128', desc: '高密度/通用', isStandard: false, score: score, type: 'Code 128' });
         }
 
+        // 3. GS1 Group
         if (/^\d+$/.test(cleanText) && !hasSpace) {
             const len = cleanText.length;
+            
             if (len === 8) {
                 if (checkEAN8Checksum(cleanText)) list.push({ id: 'ean8', name: 'EAN-8', desc: '國際縮短碼', isStandard: true, score: 150, type: 'EAN-8' });
             } 
@@ -372,11 +344,14 @@
             else if (len === 12) list.push({ id: 'upca', name: 'UPC-A', desc: '美加標準碼', isStandard: true, score: 150, type: 'UPC-A' });
             else if (len === 13) {
                 if (cleanText.startsWith('978') || cleanText.startsWith('979')) 
-                    list.push({ id: 'isbn', name: 'ISBN-13', desc: '書籍', isStandard: true, score: 160, type: 'ISBN' });
+                    list.push({ id: 'isbn', name: 'ISBN-13 (書籍)', desc: '國際標準書號', isStandard: true, score: 160, type: 'ISBN' });
                 else 
                     list.push({ id: 'ean13', name: 'GTIN-13', desc: '商品碼', isStandard: true, score: 150, type: 'EAN-13' });
             }
-            else if (len === 14) list.push({ id: 'itf14', name: 'ITF-14', desc: '外箱碼', isStandard: true, score: 140, type: 'ITF-14' });
+            else if (len === 14) {
+                // v10.8: 提升 ITF-14 權重到 170，壓過 Code 128 的 100
+                list.push({ id: 'itf14', name: 'ITF-14 (外箱)', desc: '外箱條碼', isStandard: true, score: 170, type: 'ITF-14' });
+            }
         }
 
         if (/^[A-D].*[A-D]$/.test(rawText)) list.push({ id: 'rationalizedCodabar', name: 'Codabar', desc: '圖書館', isStandard: true, score: 85, type: 'Codabar' });
