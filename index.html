@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.9)</title>
+    <title>條碼檢核 What barcode (v10.10)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -306,56 +306,63 @@
         return check === parseInt(text[7]);
     }
 
-    // --- v10.9 權重修正：ITF-14 與 ISBN 的絕對優先權 ---
     function getCandidates(rawText) {
         const cleanText = rawText.replace(/[-\s\*\(\)<>]/g, ''); 
         const hasSpace = /\s/.test(rawText);
         let list = [];
 
-        // 1. Code 39
+        // 1. Codabar (NW-7) - v10.10 優化
+        // 允許輸入 A123A 格式，或純數字格式
+        if (/^[A-D]?[0-9\-\$\:\/\.\+]+[A-D]?$/.test(rawText)) {
+             let score = 50; 
+             // 如果有 A-D 包裹，分數加高
+             if (/^[A-D].*[A-D]$/.test(rawText)) score += 150; 
+             list.push({ id: 'rationalizedCodabar', name: 'Codabar (NW-7)', desc: '圖書館/血庫', isStandard: true, score: score, type: 'Codabar' });
+        }
+
+        // 2. Code 39
         if (/^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) {
              let score = 50; 
              if (rawText.includes('*')) score += 200;
              if (/[A-Z]/.test(rawText)) score += 30;  
              if (rawText.length >= 12 && !rawText.includes('*')) score -= 30; 
-
              list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', isStandard: true, score: score, type: 'Code 39' });
         }
 
-        // 2. Code 128 (基礎分)
+        // 3. Code 128
         if (/^[\x00-\x7F]+$/.test(rawText)) {
             let score = 40; 
             if (/[a-z]/.test(rawText)) score += 100; 
             if (/[!@#&]/.test(rawText)) score += 100; 
             if (rawText.length >= 10) score += 60; 
-            // v10.9: 這裡的 100 分，現在會輸給下面的 180/200 分
-
             list.push({ id: 'code128', name: 'Code 128', desc: '高密度/通用', isStandard: false, score: score, type: 'Code 128' });
         }
 
-        // 3. GS1 Group (權重暴增)
+        // 4. GS1 Group / UPC-E / ITF-14
         if (/^\d+$/.test(cleanText) && !hasSpace) {
             const len = cleanText.length;
+            
+            // v10.10: UPC-E (6 or 8 digits)
+            if (len === 6 || (len === 8 && (cleanText.startsWith('0') || cleanText.startsWith('1')))) {
+                // 給予較高分數，壓過 Code 128
+                list.push({ id: 'upce', name: 'UPC-E', desc: '美加縮短碼', isStandard: true, score: 160, type: 'UPC-E' });
+            }
             
             if (len === 8) {
                 if (checkEAN8Checksum(cleanText)) list.push({ id: 'ean8', name: 'EAN-8', desc: '國際縮短碼', isStandard: true, score: 150, type: 'EAN-8' });
             } 
-            else if (len === 6) list.push({ id: 'upce', name: 'UPC-E', desc: '美加縮短碼', isStandard: true, score: 60, type: 'UPC-E' });
             else if (len === 12) list.push({ id: 'upca', name: 'UPC-A', desc: '美加標準碼', isStandard: true, score: 150, type: 'UPC-A' });
             else if (len === 13) {
                 if (cleanText.startsWith('978') || cleanText.startsWith('979')) 
-                    // v10.9: ISBN 權重調升至 180
                     list.push({ id: 'isbn', name: 'ISBN-13 (書籍)', desc: '國際標準書號', isStandard: true, score: 180, type: 'ISBN' });
                 else 
                     list.push({ id: 'ean13', name: 'GTIN-13', desc: '商品碼', isStandard: true, score: 150, type: 'EAN-13' });
             }
             else if (len === 14) {
-                // v10.9: ITF-14 權重調升至 200 (王者)
                 list.push({ id: 'itf14', name: 'ITF-14 (外箱)', desc: '外箱條碼', isStandard: true, score: 200, type: 'ITF-14' });
             }
         }
 
-        if (/^[A-D].*[A-D]$/.test(rawText)) list.push({ id: 'rationalizedCodabar', name: 'Codabar', desc: '圖書館', isStandard: true, score: 85, type: 'Codabar' });
         if (/[^\x00-\x7F]/.test(rawText) || /^http/i.test(rawText)) list.push({ id: 'qrcode', name: 'QR Code', desc: '二維碼', isStandard: true, score: 200, type: 'QR Code' });
 
         return list.sort((a, b) => b.score - a.score);
@@ -369,21 +376,22 @@
         const cleanText = text.replace(/[-\s\*\(\)<>]/g, ''); 
         const candidates = getCandidates(text);
         
-        // v10.9 智慧過濾：如果偵測到 GS1 格式 (且檢查碼正確)，自動壓低 Code 128 的排序
-        const hasValidGS1 = candidates.some(c => ['itf14', 'isbn', 'ean13', 'upca'].includes(c.id) && validateChecksum(cleanText, c.type).isValid);
-        
+        // 智慧過濾：如果是 ITF-14/ISBN，絕對不要讓 Code 128 搶第一
+        const hasHighPriorityGS1 = candidates.some(c => ['itf14', 'isbn'].includes(c.id));
+
         candidates.forEach((cand, index) => {
+            // v10.10: UPC-E 不進行嚴格數學驗算 (isValid 預設 true)
             let checkResult = { isValid: true, expected: null };
-            if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(cand.id)) {
+            
+            if (['ean13', 'upca', 'ean8', 'itf14', 'isbn'].includes(cand.id)) {
                 checkResult = validateChecksum(cleanText, cand.type);
             }
             
             let cardStyle = 'card-alternative';
-            
-            // 如果這是一個有效的 GS1 條碼，但當前是 Code 128，絕對不能讓它當冠軍
             if (index === 0) {
-                if (cand.id === 'code128' && hasValidGS1 && cand.score < 200) {
-                    cardStyle = 'card-alternative'; // 強制降級
+                // 如果有高級 GS1，且當前是 Code 128，強制降級
+                if (cand.id === 'code128' && hasHighPriorityGS1) {
+                    cardStyle = 'card-alternative';
                 } else {
                     cardStyle = checkResult.isValid ? 'card-best-match' : 'card-warning';
                 }
@@ -423,16 +431,6 @@
                     msg = `尾數應為 <b>${check.expected}</b>，但您輸入了 <b>${cleanText.slice(-1)}</b>。`;
                     fixCode = check.correctCode;
                 }
-            }
-        }
-        else if (formatId === 'code39') {
-            if (/[a-z]/.test(rawText)) {
-                title = "非法字元";
-                msg = "Code 39 不支援<b>小寫英文</b>，請轉為大寫。";
-                fixCode = rawText.toUpperCase();
-            } else if (/[!@#&]/.test(rawText)) {
-                title = "非法符號";
-                msg = "Code 39 不支援特殊符號，請改用 Code 128。";
             }
         }
         return { title, msg, fixCode };
@@ -517,7 +515,7 @@
             const pngBtn = btnGroup.querySelector('button[onclick*="downloadPNG"]');
             pngBtn.setAttribute('onclick', `downloadPNG(this, '${newRawText.replace(/'/g, "\\'")}', '${formatId}')`);
             
-            if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) {
+            if (['ean13', 'upca', 'ean8', 'itf14', 'isbn'].includes(formatId)) {
                 const checkResult = validateChecksum(newCleanText, formatId);
                 if (!checkResult.isValid && checkResult.expected !== null) {
                     const warnDiv = document.createElement('div');
@@ -565,7 +563,11 @@
     function createBarcodeCard(rawText, cleanText, cand, styleClass, isValid, checkResult) {
         const card = document.createElement('div'); card.className = `barcode-card ${styleClass}`;
         
-        let showToggle = (cand.id === 'code39') || /[\*<>]/.test(rawText);
+        // Codabar 選項控制
+        let showToggle = false;
+        if (cand.id === 'code39' || /[\*<>]/.test(rawText)) showToggle = true;
+        if (cand.id === 'rationalizedCodabar') showToggle = true; // Codabar 也顯示開關
+
         let toggleHTML = showToggle ? `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" checked onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示起止符號</label></div>` : '';
         
         card.innerHTML = `
@@ -629,27 +631,41 @@
             let processedText = rawText;
             if (formatId === 'code39') processedText = rawText.toUpperCase().replace(/\*/g, '');
             else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) processedText = cleanText;
+            
+            // v10.10 Codabar 自動補 'A'
+            if (formatId === 'rationalizedCodabar') {
+                if (!/^[A-D].*[A-D]$/.test(rawText)) {
+                    processedText = 'A' + rawText.replace(/[A-D]/g, '') + 'A';
+                }
+            }
 
             let drawOpts = { bcid: formatId, scale: 3, includetext: true, textsize: 13, text: processedText };
-            
-            // v10.9 修正：ISBN 強制使用 EAN-13 核心繪製，避免 bwip-js 格式錯誤
-            if (formatId === 'isbn') { drawOpts.bcid = 'ean13'; }
+            if (formatId === 'isbn') { drawOpts.bcid = 'ean13'; } // 強制使用 EAN-13 核心繪製 ISBN
 
             let isGS1 = ['ean13', 'upca', 'ean8', 'isbn'].includes(formatId);
             
             let displayText = !showSymbols ? rawText.replace(/[\*<>]/g, '') : rawText;
             if (showSymbols && formatId === 'code39' && !displayText.includes('*')) displayText = `*${displayText}*`;
+            
+            // Codabar 顯示處理
+            if (formatId === 'rationalizedCodabar') {
+                // 如果開啟顯示符號，且文字本身沒有 A-D，補上 A
+                if (showSymbols && !/^[A-D].*[A-D]$/.test(displayText)) {
+                    displayText = 'A' + displayText + 'A';
+                }
+                // 如果關閉顯示符號，移除 A-D
+                if (!showSymbols) {
+                    displayText = displayText.replace(/[A-D]/g, '');
+                }
+            }
 
             if (isGS1) {
                 drawOpts.height = 25;
                 if (showSymbols && (displayText.includes('<') || displayText.includes('>'))) drawOpts.alttext = displayText;
-            } else if (formatId === 'code39') {
+            } else if (formatId === 'code39' || formatId === 'rationalizedCodabar') {
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             } else if (formatId === 'itf14') {
-                drawOpts.height = 32; 
-                drawOpts.bearerbars = true; // 確保 ITF-14 顯示保護框
-                drawOpts.textxalign = 'center'; 
-                drawOpts.alttext = displayText;
+                drawOpts.height = 32; drawOpts.bearerbars = true; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             } else {
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             }
@@ -670,9 +686,7 @@
     window.downloadPNG = function(btn, text, suffix) {
         const canvas = btn.closest('.barcode-card').querySelector('canvas');
         if (!canvas || !canvas.dataset.drawOpts) return;
-        
         let opts = JSON.parse(canvas.dataset.drawOpts);
-        
         const createHighRes = (scaleFactor) => {
             opts.scale = scaleFactor;
             const offscreenCanvas = document.createElement('canvas');
@@ -681,21 +695,11 @@
                 const a = document.createElement('a');
                 a.href = offscreenCanvas.toDataURL('image/png');
                 a.download = `${text}_${suffix}_HD.png`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 return true;
-            } catch (e) {
-                console.warn(`Scale ${scaleFactor} failed.`);
-                return false;
-            }
+            } catch (e) { return false; }
         };
-
-        if (!createHighRes(9)) {
-            if (!createHighRes(3)) {
-                alert("圖片生成失敗，可能是記憶體不足。");
-            }
-        }
+        if (!createHighRes(9)) { if (!createHighRes(3)) alert("圖片生成失敗。"); }
     }
     
     window.downloadSVGFromCard = function(btn, formatName) {
