@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.6)</title>
+    <title>條碼檢核 What barcode (v10.7)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -27,33 +27,21 @@
             margin-bottom: 30px; border-bottom: 2px solid #eaeff2; padding-bottom: 20px; 
         }
 
-        /* --- v10.6 標題對齊核心 CSS --- */
         .title-group { 
-            display: flex; 
-            flex-direction: column; 
-            width: fit-content; /* 關鍵：讓容器寬度剛好包住內容 */
+            display: flex; flex-direction: column; width: fit-content; 
         }
         
         .main-title { 
-            font-size: 32px; font-weight: 900; letter-spacing: 0px; /* 移除預設字距，由 flex 控制 */
+            font-size: 32px; font-weight: 900; letter-spacing: 0px; 
             background: linear-gradient(135deg, #002B5B 0%, #0055AA 100%); 
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
             line-height: 1.1; 
-            
-            /* 強制分散對齊 */
-            display: flex; 
-            justify-content: space-between; 
-            width: 100%; /* 寬度跟隨下方較長的英文字 */
+            display: flex; justify-content: space-between; width: 100%; 
         }
         
         .sub-title { 
-            font-family: 'Roboto', sans-serif; 
-            font-size: 22px; 
-            font-weight: 300; 
-            color: #5f6c7b; 
-            margin-left: 0;
-            white-space: nowrap; /* 確保英文不換行，作為寬度基準 */
-            letter-spacing: 0.5px;
+            font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 300; 
+            color: #5f6c7b; margin-left: 0; white-space: nowrap; letter-spacing: 0.5px;
         }
         
         .status-badge { padding: 8px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); white-space: nowrap; }
@@ -77,16 +65,10 @@
         input[type="text"].main-input:focus { border-color: #0055AA; background: #fff; box-shadow: 0 0 0 4px rgba(0, 85, 170, 0.1); }
         input[type="text"].main-input::placeholder { color: #cbd5e1; font-weight: normal; letter-spacing: 1px; }
 
-        /* v10.6 輸入法警告樣式 */
         input[type="text"].main-input.ime-warning {
-            border-color: #dc2626;
-            background-color: #fef2f2;
-            color: #dc2626;
+            border-color: #dc2626; background-color: #fef2f2; color: #dc2626;
         }
-        input[type="text"].main-input.ime-warning::placeholder {
-            color: #ef4444;
-            font-weight: bold;
-        }
+        input[type="text"].main-input.ime-warning::placeholder { color: #ef4444; font-weight: bold; }
 
         .camera-btn {
             padding: 0 25px; font-size: 24px; cursor: pointer;
@@ -134,29 +116,13 @@
         }
 
         .qr-content {
-            width: 100%;
-            margin-bottom: 20px;
-            padding: 12px;
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 16px;
-            color: #334155;
-            word-break: break-all;
-            text-align: center;
+            width: 100%; margin-bottom: 20px; padding: 12px;
+            background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+            font-size: 16px; color: #334155; word-break: break-all; text-align: center;
             font-family: 'JetBrains Mono', monospace;
         }
-        .qr-content a {
-            color: #0055AA;
-            text-decoration: none;
-            font-weight: bold;
-            display: inline-block;
-            transition: 0.2s;
-        }
-        .qr-content a:hover {
-            text-decoration: underline;
-            color: #003366;
-        }
+        .qr-content a { color: #0055AA; text-decoration: none; font-weight: bold; display: inline-block; transition: 0.2s; }
+        .qr-content a:hover { text-decoration: underline; color: #003366; }
         
         .btn-group { display: flex; gap: 12px; width: 100%; margin-top: 10px; }
         button { 
@@ -186,22 +152,14 @@
         @media (max-width: 600px) {
             body { padding: 10px; }
             .main-container { padding: 20px; }
-            
-            .header-row { 
-                flex-direction: row; 
-                align-items: center; 
-                justify-content: space-between; 
-            }
-            
+            .header-row { flex-direction: row; align-items: center; justify-content: space-between; }
             .main-title { font-size: 20px; }
             .sub-title { font-size: 14px; }
             .status-badge { font-size: 11px; padding: 4px 10px; }
-
             .input-area { gap: 8px; }
             input[type="text"].main-input { font-size: 18px; padding: 12px; letter-spacing: 1px; }
             .camera-btn { padding: 0; width: 50px; flex: 0 0 50px; font-size: 20px; }
             .barcode-card { padding: 15px; }
-            
             .card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
             .card-options { width: 100%; box-sizing: border-box; justify-content: center;}
             .btn-group { flex-direction: column; }
@@ -304,6 +262,9 @@
             cameraBtn.classList.add('active');
             cameraBtn.innerHTML = '⏹'; 
             
+            // v10.7 自動捲動：當開啟相機時，平滑捲動到相機視窗
+            readerContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
             html5QrCode = new Html5Qrcode("reader");
             const config = { fps: 10, qrbox: { width: 250, height: 150 }, aspectRatio: 1.0 };
             
@@ -352,23 +313,17 @@
         clearTimeout(debounceTimer); inputData.select(); analyzeAndRender(inputData.value.trim().toUpperCase());
     }
 
-    // --- v10.6 新增：輸入法防呆監測 ---
     inputData.addEventListener('input', () => {
         if (isScanning) return;
         
-        // 偵測非 ASCII 字符 (通常是全形中文輸入法)
-        // \x00-\x7F 是標準 ASCII，除此之外都視為異常
+        // 輸入法防呆
         if (/[^\x00-\x7F]/.test(inputData.value)) {
-            // 清除亂碼
             inputData.value = '';
-            // 變更 placeholder 與樣式
             inputData.placeholder = "⚠️ 請切換成英文輸入碼避免亂碼";
             inputData.classList.add('ime-warning');
-            return; // 終止後續分析
+            return; 
         } else {
-            // 輸入正確，恢復正常樣式
             inputData.classList.remove('ime-warning');
-            // 如果輸入框空了，恢復預設 placeholder
             if(inputData.value === '') inputData.placeholder = "請掃描條碼";
         }
 
