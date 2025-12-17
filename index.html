@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.15)</title>
+    <title>條碼檢核 What barcode (v10.16)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -319,6 +319,7 @@
         const hasSpace = /\s/.test(rawText);
         let list = [];
 
+        // 1. Codabar
         if (/^[A-D]?[0-9\-\$\:\/\.\+]+[A-D]?$/.test(rawText)) {
              let score = 50; 
              if (/^[A-D].*[A-D]$/.test(rawText)) score += 150; 
@@ -327,7 +328,7 @@
 
         if (/^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) {
              let score = 50; 
-             if (rawText.includes('*')) score += 200; // 只有明確包含星號才給高分
+             if (rawText.includes('*')) score += 200; 
              list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', isStandard: true, score: score, type: 'Code 39' });
         }
 
@@ -340,9 +341,8 @@
              list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 180, type: 'GS1-128' });
         }
 
-        // v10.15: Code 128 權重提升，確保 "SUNAVIN" 這種非 GS1 但非 Code 39 的字串優先被 Code 128 捕獲
         if (/^[\x00-\x7F]+$/.test(rawText)) {
-            let score = 90; // 基礎分提高
+            let score = 90; 
             if (/[a-z]/.test(rawText)) score += 50; 
             if (rawText.length >= 10) score += 20; 
             list.push({ id: 'code128', name: 'Code 128', desc: '高密度/通用', isStandard: false, score: score, type: 'Code 128' });
@@ -352,18 +352,21 @@
             const len = cleanText.length;
             
             if (len === 6 || (len === 8 && (cleanText.startsWith('0') || cleanText.startsWith('1')))) {
-                list.push({ id: 'upce', name: 'UPC-E', desc: '美加縮短碼', isStandard: true, score: 160, type: 'UPC-E' });
+                list.push({ id: 'upce', name: 'UPC-E (GTIN-12)', desc: '美加縮短碼', isStandard: true, score: 160, type: 'UPC-E' });
             }
             
+            // v10.16: 不再檢查 checksum，直接給高分 220
             if (len === 8) {
-                if (checkEAN8Checksum(cleanText)) list.push({ id: 'ean8', name: 'EAN-8', desc: '國際縮短碼', isStandard: true, score: 150, type: 'EAN-8' });
+                list.push({ id: 'ean8', name: 'EAN-8 (GTIN-8)', desc: '國際縮短碼', isStandard: true, score: 220, type: 'EAN-8' });
             } 
-            else if (len === 12) list.push({ id: 'upca', name: 'UPC-A', desc: '美加標準碼', isStandard: true, score: 150, type: 'UPC-A' });
+            else if (len === 12) {
+                list.push({ id: 'upca', name: 'UPC-A (GTIN-12)', desc: '美加標準碼', isStandard: true, score: 220, type: 'UPC-A' });
+            }
             else if (len === 13) {
                 if (cleanText.startsWith('978') || cleanText.startsWith('979')) 
                     list.push({ id: 'isbn', name: 'ISBN-13 (書籍)', desc: '國際標準書號', isStandard: true, score: 180, type: 'ISBN' });
                 else 
-                    list.push({ id: 'ean13', name: 'GTIN-13', desc: '商品碼', isStandard: true, score: 150, type: 'EAN-13' });
+                    list.push({ id: 'ean13', name: 'EAN-13 (GTIN-13)', desc: '商品碼', isStandard: true, score: 220, type: 'EAN-13' });
             }
             else if (len === 14) {
                 list.push({ id: 'itf14', name: 'ITF-14 (外箱)', desc: '外箱條碼', isStandard: true, score: 200, type: 'ITF-14' });
@@ -397,11 +400,8 @@
         candidates.forEach((cand, index) => {
             let checkResult = { isValid: true, expected: null };
             
-            if (['ean13', 'upca', 'ean8', 'itf14', 'isbn'].includes(cand.id)) {
+            if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'sscc18'].includes(cand.id)) {
                 checkResult = validateChecksum(cleanText, cand.type);
-            }
-            if (cand.id === 'sscc18') {
-                checkResult = validateChecksum(cleanText, 'SSCC-18');
             }
             
             let cardStyle = 'card-alternative';
