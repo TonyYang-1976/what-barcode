@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.8)</title>
+    <title>條碼檢核 What barcode (v10.9)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -306,7 +306,7 @@
         return check === parseInt(text[7]);
     }
 
-    // --- v10.8 修正：候選人邏輯與權重調整 ---
+    // --- v10.9 權重修正：ITF-14 與 ISBN 的絕對優先權 ---
     function getCandidates(rawText) {
         const cleanText = rawText.replace(/[-\s\*\(\)<>]/g, ''); 
         const hasSpace = /\s/.test(rawText);
@@ -322,18 +322,18 @@
              list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', isStandard: true, score: score, type: 'Code 39' });
         }
 
-        // 2. Code 128
+        // 2. Code 128 (基礎分)
         if (/^[\x00-\x7F]+$/.test(rawText)) {
             let score = 40; 
             if (/[a-z]/.test(rawText)) score += 100; 
             if (/[!@#&]/.test(rawText)) score += 100; 
             if (rawText.length >= 10) score += 60; 
-            // Max score ~100-110
+            // v10.9: 這裡的 100 分，現在會輸給下面的 180/200 分
 
             list.push({ id: 'code128', name: 'Code 128', desc: '高密度/通用', isStandard: false, score: score, type: 'Code 128' });
         }
 
-        // 3. GS1 Group
+        // 3. GS1 Group (權重暴增)
         if (/^\d+$/.test(cleanText) && !hasSpace) {
             const len = cleanText.length;
             
@@ -344,13 +344,14 @@
             else if (len === 12) list.push({ id: 'upca', name: 'UPC-A', desc: '美加標準碼', isStandard: true, score: 150, type: 'UPC-A' });
             else if (len === 13) {
                 if (cleanText.startsWith('978') || cleanText.startsWith('979')) 
-                    list.push({ id: 'isbn', name: 'ISBN-13 (書籍)', desc: '國際標準書號', isStandard: true, score: 160, type: 'ISBN' });
+                    // v10.9: ISBN 權重調升至 180
+                    list.push({ id: 'isbn', name: 'ISBN-13 (書籍)', desc: '國際標準書號', isStandard: true, score: 180, type: 'ISBN' });
                 else 
                     list.push({ id: 'ean13', name: 'GTIN-13', desc: '商品碼', isStandard: true, score: 150, type: 'EAN-13' });
             }
             else if (len === 14) {
-                // v10.8: 提升 ITF-14 權重到 170，壓過 Code 128 的 100
-                list.push({ id: 'itf14', name: 'ITF-14 (外箱)', desc: '外箱條碼', isStandard: true, score: 170, type: 'ITF-14' });
+                // v10.9: ITF-14 權重調升至 200 (王者)
+                list.push({ id: 'itf14', name: 'ITF-14 (外箱)', desc: '外箱條碼', isStandard: true, score: 200, type: 'ITF-14' });
             }
         }
 
@@ -368,6 +369,9 @@
         const cleanText = text.replace(/[-\s\*\(\)<>]/g, ''); 
         const candidates = getCandidates(text);
         
+        // v10.9 智慧過濾：如果偵測到 GS1 格式 (且檢查碼正確)，自動壓低 Code 128 的排序
+        const hasValidGS1 = candidates.some(c => ['itf14', 'isbn', 'ean13', 'upca'].includes(c.id) && validateChecksum(cleanText, c.type).isValid);
+        
         candidates.forEach((cand, index) => {
             let checkResult = { isValid: true, expected: null };
             if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(cand.id)) {
@@ -375,8 +379,14 @@
             }
             
             let cardStyle = 'card-alternative';
+            
+            // 如果這是一個有效的 GS1 條碼，但當前是 Code 128，絕對不能讓它當冠軍
             if (index === 0) {
-                cardStyle = checkResult.isValid ? 'card-best-match' : 'card-warning';
+                if (cand.id === 'code128' && hasValidGS1 && cand.score < 200) {
+                    cardStyle = 'card-alternative'; // 強制降級
+                } else {
+                    cardStyle = checkResult.isValid ? 'card-best-match' : 'card-warning';
+                }
             } 
 
             createBarcodeCard(text, cleanText, cand, cardStyle, checkResult.isValid, checkResult);
@@ -621,6 +631,10 @@
             else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) processedText = cleanText;
 
             let drawOpts = { bcid: formatId, scale: 3, includetext: true, textsize: 13, text: processedText };
+            
+            // v10.9 修正：ISBN 強制使用 EAN-13 核心繪製，避免 bwip-js 格式錯誤
+            if (formatId === 'isbn') { drawOpts.bcid = 'ean13'; }
+
             let isGS1 = ['ean13', 'upca', 'ean8', 'isbn'].includes(formatId);
             
             let displayText = !showSymbols ? rawText.replace(/[\*<>]/g, '') : rawText;
@@ -632,7 +646,10 @@
             } else if (formatId === 'code39') {
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             } else if (formatId === 'itf14') {
-                drawOpts.height = 32; drawOpts.bearerbars = true; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
+                drawOpts.height = 32; 
+                drawOpts.bearerbars = true; // 確保 ITF-14 顯示保護框
+                drawOpts.textxalign = 'center'; 
+                drawOpts.alttext = displayText;
             } else {
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             }
