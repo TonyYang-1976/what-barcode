@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.12)</title>
+    <title>條碼檢核 What barcode (v10.13)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -311,7 +311,7 @@
         const hasSpace = /\s/.test(rawText);
         let list = [];
 
-        // 1. Codabar (NW-7) - v10.11 Logic
+        // v10.11 Codabar
         if (/^[A-D]?[0-9\-\$\:\/\.\+]+[A-D]?$/.test(rawText)) {
              let score = 50; 
              if (/^[A-D].*[A-D]$/.test(rawText)) score += 150; 
@@ -326,8 +326,12 @@
              list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', isStandard: true, score: score, type: 'Code 39' });
         }
 
-        // v10.12: GS1-128 (UCC/EAN-128) Detection
-        if (rawText.includes('(') || /^01\d{14}/.test(rawText) || /^00\d{18}/.test(rawText)) {
+        // v10.13: GS1-128 (Support parentheses)
+        if (rawText.includes('(') && rawText.includes(')')) {
+             // 包含括號，極有可能是 GS1-128 格式
+             list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 200, type: 'GS1-128' });
+        } else if (/^01\d{14}/.test(rawText) || /^00\d{18}/.test(rawText)) {
+             // 雖然沒括號，但符合特定物流碼結構
              list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 180, type: 'GS1-128' });
         }
 
@@ -358,10 +362,8 @@
             }
             else if (len === 14) {
                 list.push({ id: 'itf14', name: 'ITF-14 (外箱)', desc: '外箱條碼', isStandard: true, score: 200, type: 'ITF-14' });
-                // v10.12: 14碼也可以是 SCC-14 (GS1-128格式)
                 list.push({ id: 'gs1-128', name: 'GS1-128 (SCC-14)', desc: '物流標籤格式', isStandard: true, score: 190, type: 'GS1-128' });
             }
-            // v10.12: SSCC-18 Detection
             else if (len === 18) {
                 list.push({ id: 'sscc18', name: 'SSCC-18 (GS1-128)', desc: '運輸容器序號', isStandard: true, score: 200, type: 'SSCC-18' });
             }
@@ -388,7 +390,6 @@
             if (['ean13', 'upca', 'ean8', 'itf14', 'isbn'].includes(cand.id)) {
                 checkResult = validateChecksum(cleanText, cand.type);
             }
-            // v10.12 SSCC-18 uses same Mod 10 checksum
             if (cand.id === 'sscc18') {
                 checkResult = validateChecksum(cleanText, 'SSCC-18');
             }
@@ -645,21 +646,17 @@
                 processedText = start + content + stop;
             }
 
-            // v10.12 GS1-128 & SSCC-18 Special Handling
-            // 這些格式需要使用 gs1-128 編碼器，且內容可能需要自動補上 AI
             if (formatId === 'sscc18') {
-                // 如果是純 18 碼數字，自動補上 (00)
-                if (/^\d{18}$/.test(cleanText)) {
-                    processedText = '(00)' + cleanText;
-                }
-            } else if (formatId === 'gs1-128' && cleanText.length === 14) {
-                // 如果是 SCC-14 純數字，自動補上 (01)
-                if (/^\d{14}$/.test(cleanText)) {
+                if (/^\d{18}$/.test(cleanText)) { processedText = '(00)' + cleanText; }
+            } else if (formatId === 'gs1-128') {
+                // v10.13: 對於 gs1-128，如果有括號，直接使用原始輸入，讓引擎解析 AI
+                if (rawText.includes('(') && rawText.includes(')')) {
+                    processedText = rawText; 
+                } else if (cleanText.length === 14) {
                     processedText = '(01)' + cleanText;
                 }
             }
 
-            // 對於 SSCC-18 和 GS1-128，強制使用 bwip-js 的 gs1-128 編碼器
             let realBcid = formatId;
             if (formatId === 'sscc18') realBcid = 'gs1-128';
             if (formatId === 'isbn') realBcid = 'ean13';
@@ -685,7 +682,6 @@
                 drawOpts.height = 32; drawOpts.bearerbars = true; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
                 drawOpts.height = 30; drawOpts.textxalign = 'center'; 
-                // GS1-128 不需要 alttext，因為編碼器會自動產生漂亮的格式化文字 (例如 (01) 1234...)
             } else {
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             }
