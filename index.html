@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.27)</title>
+    <title>條碼檢核 What barcode (v10.28)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Roboto:wght@300;500&family=JetBrains+Mono&display=swap');
-        /* v10.27: 引入 Space Mono 作為數字字體 */
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=OCR-B:wght@400&family=Space+Mono:wght@400;700&display=swap');
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei UI", sans-serif; 
@@ -515,7 +514,6 @@
         const errorOverlay = card.querySelector('.error-overlay');
         const btnGroup = card.querySelector('.btn-group');
         
-        // v10.26: Flags
         const leftCheck = card.querySelector('.mark-left-check');
         const rightCheck = card.querySelector('.mark-right-check');
         const legacyCheck = card.querySelector('.show-symbols-check');
@@ -624,7 +622,7 @@
                 </div>
             `;
         } else if (cand.id === 'code39' || cand.id === 'rationalizedCodabar') {
-            let checked = 'checked'; // Default ON for industrial
+            let checked = 'checked';
             toggleHTML = `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" ${checked} onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示起止符號</label></div>`;
         }
         
@@ -685,34 +683,57 @@
     }
 
     window.updateCanvas = function(cb, fid, raw, clean) {
-        const card = cb.closest('.barcode-card');
-        const canvas = card.querySelector('canvas');
+        drawBarcodeOnCanvas(cb.closest('.barcode-card').querySelector('canvas'), fid, raw, clean, cb.checked);
+    }
+
+    // v10.27: Unified Injector Function
+    // Handles both Preview and Download (PNG) injection
+    function injectQuietZoneMarks(canvas, scaleFactor, showLeft, showRight) {
+        if (!showLeft && !showRight) return;
+
+        const ctx = canvas.getContext('2d');
+        ctx.save();
         
-        let showLegacy = true;
-        let showLeft = false;
-        let showRight = false;
-
-        const legacyBox = card.querySelector('.show-symbols-check');
-        if (legacyBox) showLegacy = legacyBox.checked;
-
-        const leftBox = card.querySelector('.mark-left-check');
-        if (leftBox) showLeft = leftBox.checked;
-
-        const rightBox = card.querySelector('.mark-right-check');
-        if (rightBox) showRight = rightBox.checked;
-
-        drawBarcodeOnCanvas(canvas, fid, raw, clean, showLegacy, showLeft, showRight);
+        // Font: 13pt * Scale. Use OCR-B or Space Mono.
+        let fontSize = 13 * scaleFactor;
+        ctx.font = `bold ${fontSize}px "OCR-B", "Space Mono", monospace`; 
+        ctx.fillStyle = '#000000';
+        
+        // v10.27 Alignment Fix:
+        // Use 'alphabetic' baseline to match native text baseline
+        // Use 'start'/'end' to align tight against padding boundary
+        ctx.textBaseline = 'alphabetic';
+        
+        // Y Position: Height - (Font Descent approx)
+        // 5*scale is bottom margin. Numbers sit roughly 1*scale above bottom.
+        // Trial & Error shows height - 2*scale is usually good for alphabetic baseline
+        let yPos = canvas.height - (3 * scaleFactor); 
+        
+        // Padding Width where marks live (15 * scale)
+        let padPx = 15 * scaleFactor;
+        
+        if (showLeft) {
+            ctx.textAlign = 'right';
+            // Draw at padding edge (minus 2px margin)
+            ctx.fillText('<', padPx - (2 * scaleFactor), yPos);
+        }
+        if (showRight) {
+            ctx.textAlign = 'left';
+            // Draw at width - padding edge (plus 2px margin)
+            ctx.fillText('>', canvas.width - padPx + (2 * scaleFactor), yPos);
+        }
+        ctx.restore();
     }
 
     function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols, showLeft, showRight) {
         try {
-            // v10.26: Tight padding (10) for compact visual
             let scaleFactor = 3;
+            // v10.27: Padding 15 to allow space for < >
             let drawOpts = { 
                 bcid: formatId, 
                 scale: scaleFactor, 
                 includetext: true,
-                paddingwidth: 10,  
+                paddingwidth: 15,
                 paddingheight: 10,
                 backgroundcolor: 'ffffff'
             };
@@ -723,7 +744,6 @@
                 processedText = cleanText; 
             }
             
-            // ... (Logic for Codabar, SSCC, GS1 remains same) ...
             if (formatId === 'rationalizedCodabar') {
                 let content = rawText.replace(/[A-D]/g, '');
                 let start = 'A', stop = 'A';
@@ -749,7 +769,6 @@
             let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(formatId);
             let displayText = rawText;
 
-            // v10.26: Native Guarantee
             if (isRetail) {
                 delete drawOpts.alttext; 
             } else {
@@ -762,10 +781,10 @@
                 drawOpts.alttext = displayText;
             }
 
-            // v10.26: Force Font Size to sync
             if (isRetail) {
                 drawOpts.height = 30; 
-                drawOpts.textsize = 13; // Set native size to match injection
+                // v10.27: Ensure font size matches injected marks
+                drawOpts.textsize = 13; 
             } else if (formatId === 'itf14') {
                 drawOpts.height = 35; drawOpts.textsize = 16; drawOpts.textyoffset = 5; drawOpts.bearerbars = true; drawOpts.textxalign = 'center';
             } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
@@ -779,57 +798,74 @@
                 drawOpts.scale = 12; drawOpts.includetext = false; delete drawOpts.height; delete drawOpts.alttext; delete drawOpts.textyoffset;
             }
 
+            // Save opts for download re-use
             canvas.dataset.drawOpts = JSON.stringify(drawOpts);
+            
+            // Draw
             bwipjs.toCanvas(canvas, drawOpts);
 
-            // v10.26: Pixel-Perfect Injection
-            if (isRetail && (showLeft || showRight)) {
-                let ctx = canvas.getContext('2d');
-                ctx.save();
-                
-                // Font: 13pt * Scale (approx 39px). Using Space Mono for alignment
-                let fontSize = 13 * scaleFactor;
-                ctx.font = `bold ${fontSize}px "Space Mono", monospace`; 
-                ctx.fillStyle = '#000000';
-                
-                // v10.26: Alignment Logic
-                // Use 'alphabetic' to align baselines with native numbers
-                ctx.textBaseline = 'alphabetic';
-                
-                // Y: Height - Padding/2 (Approx baseline of text)
-                // This magic number (5*scale) aligns with bwip-js default bottom margin
-                let yPos = canvas.height - (5 * scaleFactor); 
-                
-                // Padding Width in Pixels
-                let padPx = 10 * scaleFactor;
-                
-                if (showLeft) {
-                    ctx.textAlign = 'right';
-                    // X: Pad - 2px (Tight against guard bar)
-                    ctx.fillText('<', padPx - 2, yPos);
-                }
-                if (showRight) {
-                    ctx.textAlign = 'left';
-                    // X: Width - Pad + 2px
-                    ctx.fillText('>', canvas.width - padPx + 2, yPos);
-                }
-                ctx.restore();
+            // v10.27: Inject Marks
+            if (isRetail) {
+                injectQuietZoneMarks(canvas, scaleFactor, showLeft, showRight);
             }
 
             return true;
         } catch (e) { return false; }
     }
 
+    // v10.27: SVG Injection Logic
+    function injectMarksIntoSVG(svgString, showLeft, showRight) {
+        if (!showLeft && !showRight) return svgString;
+
+        // Parse viewBox to get dimensions: viewBox="0 0 100 50"
+        let match = svgString.match(/viewBox="0 0 (\d+) (\d+)"/);
+        if (!match) return svgString;
+        
+        let width = parseInt(match[1]);
+        let height = parseInt(match[2]);
+        
+        // Standard padding set in options was 15 (unscaled units in SVG usually)
+        let pad = 15; 
+        let yPos = height - 3; // Approx alignment
+        
+        let marks = '';
+        let style = 'font-family: OCR-B, Space Mono, monospace; font-weight: bold; font-size: 13px; fill: #000000;';
+        
+        if (showLeft) {
+            marks += `<text x="${pad - 2}" y="${yPos}" text-anchor="end" style="${style}">&lt;</text>`;
+        }
+        if (showRight) {
+            marks += `<text x="${width - pad + 2}" y="${yPos}" text-anchor="start" style="${style}">&gt;</text>`;
+        }
+        
+        // Insert before closing tag
+        return svgString.replace('</svg>', marks + '</svg>');
+    }
+
     window.downloadPNG = function(btn, text, suffix) {
         const canvas = btn.closest('.barcode-card').querySelector('canvas');
         if (!canvas || !canvas.dataset.drawOpts) return;
+        
         let opts = JSON.parse(canvas.dataset.drawOpts);
+        
+        // Check flags from UI
+        const card = btn.closest('.barcode-card');
+        const leftCheck = card.querySelector('.mark-left-check');
+        const rightCheck = card.querySelector('.mark-right-check');
+        const showLeft = leftCheck ? leftCheck.checked : false;
+        const showRight = rightCheck ? rightCheck.checked : false;
+        let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(opts.bcid) || opts.bcid === 'ean13'; // isbn becomes ean13
+
         const createHighRes = (scaleFactor) => {
-            opts.scale = scaleFactor;
+            opts.scale = scaleFactor; // High res scale
             const offscreenCanvas = document.createElement('canvas');
             try {
                 bwipjs.toCanvas(offscreenCanvas, opts);
-                // Re-inject for download requires scaling logic, keeping native for stability
+                // v10.27: Re-inject marks for PNG download
+                if (isRetail) {
+                    injectQuietZoneMarks(offscreenCanvas, scaleFactor, showLeft, showRight);
+                }
+                
                 const a = document.createElement('a');
                 a.href = offscreenCanvas.toDataURL('image/png');
                 a.download = `${text}_${suffix}_HD.png`;
@@ -842,12 +878,25 @@
     
     window.downloadSVGFromCard = function(btn, formatName) {
         const c = btn.closest('.barcode-card').querySelector('canvas');
-        if(c && c.dataset.drawOpts) downloadSVG(JSON.parse(c.dataset.drawOpts), formatName);
+        if(c && c.dataset.drawOpts) downloadSVG(JSON.parse(c.dataset.drawOpts), formatName, btn);
     }
     
-    window.downloadSVG = function(opts, fname) {
+    window.downloadSVG = function(opts, fname, btn) {
         try {
             let s = bwipjs.toSVG(opts);
+            
+            // v10.27: SVG Injection
+            const card = btn.closest('.barcode-card');
+            const leftCheck = card.querySelector('.mark-left-check');
+            const rightCheck = card.querySelector('.mark-right-check');
+            const showLeft = leftCheck ? leftCheck.checked : false;
+            const showRight = rightCheck ? rightCheck.checked : false;
+            let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(opts.bcid) || opts.bcid === 'ean13';
+
+            if (isRetail) {
+                s = injectMarksIntoSVG(s, showLeft, showRight);
+            }
+
             if (!s.includes('shape-rendering')) s = s.replace('<svg', '<svg shape-rendering="crispEdges"');
             if (!s.startsWith('<?xml')) s = '<?xml version="1.0" standalone="no"?>\n' + s;
             const b = new Blob([s], {type: "image/svg+xml;charset=utf-8"});
