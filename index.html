@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.19)</title>
+    <title>條碼檢核 What barcode (v10.20)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -334,14 +334,14 @@
 
         // 1. Codabar
         if (/^[A-D]?[0-9\-\$\:\/\.\+]+[A-D]?$/.test(rawText)) {
-             let score = 120;
+             let score = 120; // v10.20: 維持 120
              if (/^[A-D].*[A-D]$/.test(rawText)) score += 150; 
              list.push({ id: 'rationalizedCodabar', name: 'Codabar (NW-7)', desc: '圖書館/血庫', isStandard: true, score: score, type: 'Codabar' });
         }
 
-        // 2. Code 39
+        // 2. Code 39 - v10.20 權重調整
         if (isCode39Prefixed || /^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) {
-             let score = 110; 
+             let score = 130; // v10.20: 提升基礎分至 130，使其大於 Codabar (120)
              if (rawText.includes('*')) score += 200; 
              if (isCode39Prefixed) score = 220; 
              list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', isStandard: true, score: score, type: 'Code 39' });
@@ -593,10 +593,9 @@
     function createBarcodeCard(rawText, cleanText, cand, styleClass, isValid, checkResult) {
         const card = document.createElement('div'); card.className = `barcode-card ${styleClass}`;
         
-        // v10.19: Show Toggle Logic
+        // v10.20: 修正開關顯示條件，增加對 < > 的偵測
         let showToggle = false;
         if (cand.id === 'code39' || cand.id === 'rationalizedCodabar') showToggle = true;
-        // 如果偵測到 < >，也顯示開關
         if (/[<>]/.test(rawText)) showToggle = true;
 
         let toggleHTML = showToggle ? `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" checked onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示起止符號</label></div>` : '';
@@ -696,13 +695,11 @@
 
             let isGS1 = ['ean13', 'upca', 'ean8', 'isbn'].includes(formatId);
             
-            // v10.19: Display Text Logic
+            // v10.20: Display Text Logic Fix
             let displayText = rawText; 
             
             if (!showSymbols) {
-                // 如果關閉符號，只移除特定裝飾符 (星號、角括號)
                 displayText = rawText.replace(/[\*<>]/g, '');
-                // 註：不移除 () 括號，因為 GS1 要求顯示
             } 
             
             if (formatId === 'code39' && showSymbols && !displayText.includes('*')) {
@@ -714,8 +711,8 @@
                 else { displayText = processedText.replace(/[A-D]/g, ''); }
             }
 
-            // 強制設定 alttext，覆蓋 bwip-js 預設行為，確保 <> 或 () 顯示正確
-            if (isGS1 || formatId === 'code39' || formatId === 'rationalizedCodabar' || formatId === 'itf14') {
+            // v10.20: 強制覆蓋 EAN/UPC 的預設文字顯示，確保 < > 能被顯示或隱藏
+            if (isGS1 || formatId === 'code39' || formatId === 'rationalizedCodabar' || formatId === 'itf14' || /[<>]/.test(rawText)) {
                 drawOpts.alttext = displayText;
             }
             
@@ -726,8 +723,6 @@
                 drawOpts.height = 32; drawOpts.bearerbars = true; drawOpts.textxalign = 'center';
             } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
                 drawOpts.height = 30; drawOpts.textxalign = 'center'; 
-                // GS1-128 允許 bwip-js 自動格式化，除非使用者有特殊輸入 (含括號)
-                // 但為了確保一致性，若 displayText 含括號則強制使用
                 if (displayText.includes('(')) drawOpts.alttext = displayText;
             } else {
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
