@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.21)</title>
+    <title>條碼檢核 What barcode (v10.22)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -593,7 +593,6 @@
     function createBarcodeCard(rawText, cleanText, cand, styleClass, isValid, checkResult) {
         const card = document.createElement('div'); card.className = `barcode-card ${styleClass}`;
         
-        // v10.20: 修正開關顯示條件
         let showToggle = false;
         if (cand.id === 'code39' || cand.id === 'rationalizedCodabar') showToggle = true;
         if (/[<>]/.test(rawText)) showToggle = true;
@@ -662,19 +661,19 @@
 
     function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols) {
         try {
-            // v10.21: Define base options with strict padding/color for industrial compliance
+            // v10.22: Strict padding/color
             let drawOpts = { 
                 bcid: formatId, 
                 scale: 3, 
                 includetext: true,
-                paddingwidth: 20, // Strict Quiet Zone
+                paddingwidth: 20,
                 paddingheight: 10,
-                backgroundcolor: 'ffffff' // Ensure white background
+                backgroundcolor: 'ffffff'
             };
 
             let processedText = rawText;
             if (formatId === 'code39') processedText = rawText.toUpperCase().replace(/\*/g, '');
-            else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) processedText = cleanText;
+            else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) processedText = cleanText; // Clean text for EAN/UPC logic
             
             if (formatId === 'rationalizedCodabar') {
                 let content = rawText.replace(/[A-D]/g, '');
@@ -703,35 +702,43 @@
             drawOpts.bcid = realBcid;
             drawOpts.text = processedText;
 
-            // v10.21: Industrial Tuning
             let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(formatId);
             
-            // Display Text Logic (v10.20 fix retained)
-            let displayText = rawText; 
-            if (!showSymbols) {
-                displayText = rawText.replace(/[\*<>]/g, '');
-            } 
-            if (formatId === 'code39' && showSymbols && !displayText.includes('*')) {
-                displayText = `*${displayText}*`;
-            }
-            if (formatId === 'rationalizedCodabar') {
-                if (showSymbols) { displayText = processedText; } 
-                else { displayText = processedText.replace(/[A-D]/g, ''); }
-            }
-
-            // Force alttext if special symbols exist
-            if (isRetail || formatId === 'code39' || formatId === 'rationalizedCodabar' || formatId === 'itf14' || /[<>]/.test(rawText)) {
+            // v10.22: EAN/UPC Native Rendering Restore Logic
+            // 若為零售條碼，且開啟顯示符號 -> 不設定 alttext，讓 bwip-js 用原生方式畫出凹槽與嵌入數字
+            // 若關閉顯示符號 -> 設定 includetext: false
+            if (isRetail) {
+                if (showSymbols) {
+                    // Do NOT set alttext. Let it be natural.
+                    delete drawOpts.alttext; 
+                } else {
+                    drawOpts.includetext = false;
+                }
+            } else {
+                // Non-retail (Code 128, 39, etc.) -> Use manual alttext
+                let displayText = rawText; 
+                if (!showSymbols) {
+                    displayText = rawText.replace(/[\*<>]/g, '');
+                } 
+                if (formatId === 'code39' && showSymbols && !displayText.includes('*')) {
+                    displayText = `*${displayText}*`;
+                }
+                if (formatId === 'rationalizedCodabar') {
+                    if (showSymbols) { displayText = processedText; } 
+                    else { displayText = processedText.replace(/[A-D]/g, ''); }
+                }
+                
+                // For non-retail, we typically control text manually
                 drawOpts.alttext = displayText;
             }
 
-            // v10.21: Specific Sizing & Spacing
+            // v10.22: Specific Sizing
             if (isRetail) {
-                drawOpts.height = 30; // Taller standard
-                drawOpts.textsize = 14; // Larger OCR-B
-                drawOpts.textyoffset = 2; // Clean spacing
+                drawOpts.height = 30; 
+                // Removed textsize/textyoffset to let bwip-js use standard OCR-B defaults
             } else if (formatId === 'itf14') {
                 drawOpts.height = 35; 
-                drawOpts.textsize = 16; // Big text for cartons
+                drawOpts.textsize = 16; 
                 drawOpts.textyoffset = 5;
                 drawOpts.bearerbars = true; 
                 drawOpts.textxalign = 'center';
@@ -740,9 +747,14 @@
                 drawOpts.textsize = 13;
                 drawOpts.textyoffset = 2;
                 drawOpts.textxalign = 'center'; 
-                if (displayText.includes('(')) drawOpts.alttext = displayText;
+                // Restore alttext for GS1-128 if needed (e.g. parens)
+                if (isRetail === false && drawOpts.alttext && drawOpts.alttext.includes('(')) {
+                     // Keep custom alttext for GS1-128 human readable
+                } else {
+                    // Let engine format it nicely
+                    delete drawOpts.alttext;
+                }
             } else {
-                // Code 128 / 39 / Codabar
                 drawOpts.height = 20; 
                 drawOpts.textsize = 13;
                 drawOpts.textxalign = 'center'; 
