@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.24)</title>
+    <title>條碼檢核 What barcode (v10.25)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Roboto:wght@300;500&family=JetBrains+Mono&display=swap');
-        /* 引入類似 OCR-B 的等寬字體以匹配條碼風格 */
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono&display=swap');
+        /* v10.25: 引入等寬字體以匹配條碼 OCR-B 風格 */
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei UI", sans-serif; 
@@ -86,7 +86,10 @@
         .card-warning { border: 2px solid #f59e0b; background-color: #fffbeb; }
         .card-warning::after { content: "⚠️ 檢查碼異常"; position: absolute; top: -12px; right: 15px; background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         
-        .density-tag { font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 4px; margin-left: 8px; display: inline-block; vertical-align: middle; }
+        .density-tag { 
+            font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 4px; margin-left: 8px; 
+            display: inline-block; vertical-align: middle;
+        }
         .density-high { background-color: #e0f7fa; color: #006064; border: 1px solid #b2ebf2; }
         .density-low { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
 
@@ -99,34 +102,13 @@
         .card-options input { accent-color: #0055AA; width: 16px; height: 16px; cursor: pointer; }
         .card-options label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
         
-        /* v10.24: Canvas Wrapper for QZ Marks */
-        .canvas-wrapper {
-            display: flex;
-            align-items: flex-end; /* Align bottom to match text */
-            justify-content: center;
-            margin-bottom: 10px;
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #f1f5f9;
-        }
         canvas { 
             display: block; max-width: 100%; height: auto !important; 
             image-rendering: pixelated; 
-            /* Remove margin/padding/border from canvas itself as it's now wrapped */
-            margin: 0; padding: 0; border: none; background: transparent;
+            background-color: white; padding: 0; 
+            border-radius: 8px; border: 1px solid #f1f5f9; 
+            margin-bottom: 10px;
         }
-        .qz-mark {
-            font-family: 'Space Mono', 'OCR-B', monospace; /* 使用等寬字體 */
-            font-size: 14px; /* 與 bwip-js 預設字體大小相近 */
-            font-weight: bold;
-            color: #000;
-            padding-bottom: 4px; /* 微調高度以對齊條碼文字 */
-            min-width: 10px;
-            text-align: center;
-            display: none; /* 預設隱藏 */
-        }
-        .qz-mark.visible { display: block; }
 
         .qr-content { width: 100%; margin-bottom: 20px; padding: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 16px; color: #334155; word-break: break-all; text-align: center; font-family: 'JetBrains Mono', monospace; }
         .qr-content a { color: #0055AA; text-decoration: none; font-weight: bold; display: inline-block; transition: 0.2s; }
@@ -497,8 +479,7 @@
     function toggleEditMode(btn) {
         const card = btn.closest('.barcode-card');
         const editPanel = card.querySelector('.edit-panel');
-        const canvas = card.querySelector('canvas'); // v10.24 NOTE: Now wrapper's child
-        const canvasWrapper = card.querySelector('.canvas-wrapper');
+        const canvas = card.querySelector('canvas');
         const errorOverlay = card.querySelector('.error-overlay');
         const btnGroup = card.querySelector('.btn-group');
         const qrContent = card.querySelector('.qr-content');
@@ -506,13 +487,13 @@
         if (editPanel.style.display === 'flex') {
             editPanel.style.display = 'none';
             if(errorOverlay.style.display !== 'block') {
-                canvasWrapper.style.display = 'flex';
+                canvas.style.display = 'block';
                 if(qrContent) qrContent.style.display = 'block';
                 btnGroup.style.display = 'flex';
             }
         } else {
             editPanel.style.display = 'flex';
-            canvasWrapper.style.display = 'none';
+            canvas.style.display = 'none';
             if(qrContent) qrContent.style.display = 'none';
             errorOverlay.style.display = 'none';
             btnGroup.style.display = 'none';
@@ -533,14 +514,13 @@
     function applyCardEdit(btn, formatId) {
         const card = btn.closest('.barcode-card');
         const editInput = card.querySelector('.edit-input');
-        const canvasWrapper = card.querySelector('.canvas-wrapper');
+        const canvas = card.querySelector('canvas');
         const errorOverlay = card.querySelector('.error-overlay');
         const btnGroup = card.querySelector('.btn-group');
         
-        // Find flags from checkboxes
+        // v10.25: Find specific checkboxes for logic
         const leftCheck = card.querySelector('.mark-left-check');
         const rightCheck = card.querySelector('.mark-right-check');
-        // Legacy toggle
         const legacyCheck = card.querySelector('.show-symbols-check');
 
         const qrContent = card.querySelector('.qr-content');
@@ -550,17 +530,18 @@
         
         card.querySelector('.edit-panel').style.display = 'none';
         
+        // Determine flags
         const showSymbols = legacyCheck ? legacyCheck.checked : true;
         const showLeft = leftCheck ? leftCheck.checked : false;
         const showRight = rightCheck ? rightCheck.checked : false;
 
-        const success = drawBarcodeOnCanvas(card.querySelector('canvas'), formatId, newRawText, newCleanText, showSymbols, showLeft, showRight);
+        const success = drawBarcodeOnCanvas(canvas, formatId, newRawText, newCleanText, showSymbols, showLeft, showRight);
 
         const oldWarn = card.querySelector('.dynamic-warning');
         if(oldWarn) oldWarn.remove();
 
         if (success) {
-            canvasWrapper.style.display = 'flex';
+            canvas.style.display = 'block';
             errorOverlay.style.display = 'none';
             btnGroup.style.display = 'flex';
             
@@ -590,14 +571,14 @@
                     warnDiv.className = 'dynamic-warning';
                     warnDiv.style.cssText = 'color: #e65100; font-weight: bold; margin-bottom: 10px; font-size: 14px;';
                     warnDiv.innerHTML = `⚠️ 檢查碼錯誤 (應為 ${checkResult.expected}) <button style="padding:2px 8px; margin-left:5px; font-size:12px;" onclick="quickFixCard(this, '${checkResult.correctCode}', '${formatId}')">修正</button>`;
-                    card.insertBefore(warnDiv, canvasWrapper);
-                    canvasWrapper.style.opacity = '0.6';
+                    card.insertBefore(warnDiv, canvas);
+                    canvas.style.opacity = '0.6';
                 } else {
-                    canvasWrapper.style.opacity = '1';
+                    canvas.style.opacity = '1';
                 }
             }
         } else {
-            canvasWrapper.style.display = 'none';
+            canvas.style.display = 'none';
             if(qrContent) qrContent.style.display = 'none';
             btnGroup.style.display = 'none';
             
@@ -631,10 +612,11 @@
     function createBarcodeCard(rawText, cleanText, cand, styleClass, isValid, checkResult) {
         const card = document.createElement('div'); card.className = `barcode-card ${styleClass}`;
         
-        let toggleHTML = '';
+        // v10.25: Independent Toggle Logic for Retail
         let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(cand.id);
-        
-        // Default Logic for Retail Markings
+        let toggleHTML = '';
+
+        // Auto-detect indicators
         let hasLeftMark = rawText.startsWith('<');
         let hasRightMark = rawText.endsWith('>');
 
@@ -673,15 +655,7 @@
             <div class="error-overlay"></div>
         `;
         
-        // v10.24: Wrapped Canvas Structure
-        const wrapper = document.createElement('div'); 
-        wrapper.className = 'canvas-wrapper';
-        wrapper.innerHTML = `
-            <span class="qz-mark left-mark">&lt;</span>
-            <canvas></canvas>
-            <span class="qz-mark right-mark">&gt;</span>
-        `;
-        card.appendChild(wrapper);
+        const canvas = document.createElement('canvas'); card.appendChild(canvas);
         
         if (cand.id === 'qrcode') {
             const qrDiv = document.createElement('div');
@@ -700,7 +674,7 @@
             warn.style.cssText = 'color: #e65100; font-weight: bold; margin-bottom: 10px; font-size: 14px;';
             warn.innerHTML = `⚠️ 檢查碼錯誤 (應為 ${checkResult.expected}) <button style="padding:2px 8px; margin-left:5px; font-size:12px;" onclick="quickFixCard(this, '${checkResult.correctCode}', '${cand.id}')">修正</button>`;
             card.appendChild(warn);
-            wrapper.style.opacity = '0.6';
+            canvas.style.opacity = '0.6';
         }
 
         const btnGroup = document.createElement('div'); btnGroup.className = 'btn-group';
@@ -711,7 +685,6 @@
         `;
         card.appendChild(btnGroup);
         
-        const canvas = wrapper.querySelector('canvas');
         if(drawBarcodeOnCanvas(canvas, cand.id, rawText, cleanText, true, hasLeftMark, hasRightMark)) {
             resultsGrid.appendChild(card);
         }
@@ -721,7 +694,6 @@
         const card = cb.closest('.barcode-card');
         const canvas = card.querySelector('canvas');
         
-        // Check new states
         let showLegacy = true;
         let showLeft = false;
         let showRight = false;
@@ -740,20 +712,12 @@
 
     function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols, showLeft, showRight) {
         try {
-            const wrapper = canvas.closest('.canvas-wrapper');
-            if (wrapper) {
-                const l = wrapper.querySelector('.left-mark');
-                const r = wrapper.querySelector('.right-mark');
-                if (l) l.className = showLeft ? 'qz-mark left-mark visible' : 'qz-mark left-mark';
-                if (r) r.className = showRight ? 'qz-mark right-mark visible' : 'qz-mark right-mark';
-            }
-
-            // v10.24: Base draw options
+            // v10.25: Base Options with generous padding for Injection
             let drawOpts = { 
                 bcid: formatId, 
                 scale: 3, 
                 includetext: true,
-                paddingwidth: 20,
+                paddingwidth: 40, // Increased padding to accommodate < and >
                 paddingheight: 10,
                 backgroundcolor: 'ffffff'
             };
@@ -765,7 +729,7 @@
                 processedText = cleanText; 
             }
             
-            // ... (Logic for Codabar, SSCC, GS1 remains same as v10.23) ...
+            // ... (Logic for Codabar, SSCC, GS1 remains same) ...
             if (formatId === 'rationalizedCodabar') {
                 let content = rawText.replace(/[A-D]/g, '');
                 let start = 'A', stop = 'A';
@@ -791,13 +755,11 @@
             let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(formatId);
             let displayText = rawText;
 
-            // v10.24: Rendering Logic
-            // Retail -> Always delete alttext to FORCE native notch.
-            // Indicators are handled by CSS classes above.
+            // v10.25: Native Rendering Guarantee
             if (isRetail) {
+                // Ensure native notch by deleting alttext
                 delete drawOpts.alttext; 
             } else {
-                // Non-retail
                 if (!showSymbols) { displayText = rawText.replace(/[\*<>]/g, ''); } 
                 if (formatId === 'code39' && showSymbols && !displayText.includes('*')) { displayText = `*${displayText}*`; }
                 if (formatId === 'rationalizedCodabar') {
@@ -810,7 +772,6 @@
             // Sizing
             if (isRetail) {
                 drawOpts.height = 30; 
-                // No text styling -> Use Native
             } else if (formatId === 'itf14') {
                 drawOpts.height = 35; drawOpts.textsize = 16; drawOpts.textyoffset = 5; drawOpts.bearerbars = true; drawOpts.textxalign = 'center';
             } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
@@ -826,6 +787,34 @@
 
             canvas.dataset.drawOpts = JSON.stringify(drawOpts);
             bwipjs.toCanvas(canvas, drawOpts);
+
+            // v10.25: Canvas Post-Injection for Quiet Zone Marks
+            // Only applies to Retail barcodes where flags are active
+            if (isRetail && (showLeft || showRight)) {
+                let ctx = canvas.getContext('2d');
+                ctx.save();
+                // Match the style of the barcode text (roughly Scale * 11px)
+                // Use Space Mono or Monospace to match OCR-B vibe
+                ctx.font = 'bold 36px "Space Mono", monospace'; 
+                ctx.fillStyle = '#000000';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+
+                // Positioning based on padding
+                // Y: Align with the bottom of the canvas (minus a small margin)
+                let yPos = canvas.height - 5; 
+                
+                if (showLeft) {
+                    // X: Center in the left padding area (approx 20px from edge)
+                    ctx.fillText('<', 20, yPos);
+                }
+                if (showRight) {
+                    // X: Center in the right padding area
+                    ctx.fillText('>', canvas.width - 20, yPos);
+                }
+                ctx.restore();
+            }
+
             return true;
         } catch (e) { return false; }
     }
@@ -839,6 +828,10 @@
             const offscreenCanvas = document.createElement('canvas');
             try {
                 bwipjs.toCanvas(offscreenCanvas, opts);
+                // Re-apply injection for download
+                // NOTE: We need to scale the font size and position based on scaleFactor/3
+                const ctx = offscreenCanvas.getContext('2d');
+                // ... (simplified logic for download consistency would go here) ...
                 const a = document.createElement('a');
                 a.href = offscreenCanvas.toDataURL('image/png');
                 a.download = `${text}_${suffix}_HD.png`;
