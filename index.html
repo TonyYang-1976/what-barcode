@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.23)</title>
+    <title>條碼檢核 What barcode (v10.24)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Roboto:wght@300;500&family=JetBrains+Mono&display=swap');
+        /* 引入類似 OCR-B 的等寬字體以匹配條碼風格 */
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono&display=swap');
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei UI", sans-serif; 
@@ -84,10 +86,7 @@
         .card-warning { border: 2px solid #f59e0b; background-color: #fffbeb; }
         .card-warning::after { content: "⚠️ 檢查碼異常"; position: absolute; top: -12px; right: 15px; background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         
-        .density-tag { 
-            font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 4px; margin-left: 8px; 
-            display: inline-block; vertical-align: middle;
-        }
+        .density-tag { font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 4px; margin-left: 8px; display: inline-block; vertical-align: middle; }
         .density-high { background-color: #e0f7fa; color: #006064; border: 1px solid #b2ebf2; }
         .density-low { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
 
@@ -95,12 +94,39 @@
         .format-name { font-size: 24px; font-weight: 800; color: #1e293b; letter-spacing: -0.5px; }
         .format-tag { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500; }
         
-        /* v10.23: 優化選項區域樣式 */
-        .card-options { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; }
+        .card-options-group { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+        .card-options { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 4px 10px; border-radius: 6px; border: 1px solid #cbd5e1; }
         .card-options input { accent-color: #0055AA; width: 16px; height: 16px; cursor: pointer; }
-        .card-options label { cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .card-options label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
         
-        canvas { display: block; max-width: 100%; height: auto !important; margin-bottom: 10px; image-rendering: pixelated; background-color: white; padding: 15px; border-radius: 8px; border: 1px solid #f1f5f9; }
+        /* v10.24: Canvas Wrapper for QZ Marks */
+        .canvas-wrapper {
+            display: flex;
+            align-items: flex-end; /* Align bottom to match text */
+            justify-content: center;
+            margin-bottom: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #f1f5f9;
+        }
+        canvas { 
+            display: block; max-width: 100%; height: auto !important; 
+            image-rendering: pixelated; 
+            /* Remove margin/padding/border from canvas itself as it's now wrapped */
+            margin: 0; padding: 0; border: none; background: transparent;
+        }
+        .qz-mark {
+            font-family: 'Space Mono', 'OCR-B', monospace; /* 使用等寬字體 */
+            font-size: 14px; /* 與 bwip-js 預設字體大小相近 */
+            font-weight: bold;
+            color: #000;
+            padding-bottom: 4px; /* 微調高度以對齊條碼文字 */
+            min-width: 10px;
+            text-align: center;
+            display: none; /* 預設隱藏 */
+        }
+        .qz-mark.visible { display: block; }
 
         .qr-content { width: 100%; margin-bottom: 20px; padding: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 16px; color: #334155; word-break: break-all; text-align: center; font-family: 'JetBrains Mono', monospace; }
         .qr-content a { color: #0055AA; text-decoration: none; font-weight: bold; display: inline-block; transition: 0.2s; }
@@ -138,7 +164,7 @@
             .camera-btn { padding: 0; width: 50px; flex: 0 0 50px; font-size: 20px; }
             .barcode-card { padding: 15px; }
             .card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-            .card-options { width: 100%; box-sizing: border-box; justify-content: center;}
+            .card-options-group { width: 100%; align-items: flex-start; }
             .btn-group { flex-direction: column; }
             button { padding: 15px; font-size: 16px; }
             .card-best-match::before { top: -12px; font-size: 12px; padding: 3px 12px; }
@@ -471,7 +497,8 @@
     function toggleEditMode(btn) {
         const card = btn.closest('.barcode-card');
         const editPanel = card.querySelector('.edit-panel');
-        const canvas = card.querySelector('canvas');
+        const canvas = card.querySelector('canvas'); // v10.24 NOTE: Now wrapper's child
+        const canvasWrapper = card.querySelector('.canvas-wrapper');
         const errorOverlay = card.querySelector('.error-overlay');
         const btnGroup = card.querySelector('.btn-group');
         const qrContent = card.querySelector('.qr-content');
@@ -479,13 +506,13 @@
         if (editPanel.style.display === 'flex') {
             editPanel.style.display = 'none';
             if(errorOverlay.style.display !== 'block') {
-                canvas.style.display = 'block';
+                canvasWrapper.style.display = 'flex';
                 if(qrContent) qrContent.style.display = 'block';
                 btnGroup.style.display = 'flex';
             }
         } else {
             editPanel.style.display = 'flex';
-            canvas.style.display = 'none';
+            canvasWrapper.style.display = 'none';
             if(qrContent) qrContent.style.display = 'none';
             errorOverlay.style.display = 'none';
             btnGroup.style.display = 'none';
@@ -506,10 +533,16 @@
     function applyCardEdit(btn, formatId) {
         const card = btn.closest('.barcode-card');
         const editInput = card.querySelector('.edit-input');
-        const canvas = card.querySelector('canvas');
+        const canvasWrapper = card.querySelector('.canvas-wrapper');
         const errorOverlay = card.querySelector('.error-overlay');
         const btnGroup = card.querySelector('.btn-group');
-        const checkbox = card.querySelector('.show-symbols-check');
+        
+        // Find flags from checkboxes
+        const leftCheck = card.querySelector('.mark-left-check');
+        const rightCheck = card.querySelector('.mark-right-check');
+        // Legacy toggle
+        const legacyCheck = card.querySelector('.show-symbols-check');
+
         const qrContent = card.querySelector('.qr-content');
         
         const newRawText = editInput.value.trim(); 
@@ -517,15 +550,17 @@
         
         card.querySelector('.edit-panel').style.display = 'none';
         
-        // Fix: checkbox can be null if format doesn't support it, handle graceful
-        const showSymbols = checkbox ? checkbox.checked : true;
-        const success = drawBarcodeOnCanvas(canvas, formatId, newRawText, newCleanText, showSymbols);
+        const showSymbols = legacyCheck ? legacyCheck.checked : true;
+        const showLeft = leftCheck ? leftCheck.checked : false;
+        const showRight = rightCheck ? rightCheck.checked : false;
+
+        const success = drawBarcodeOnCanvas(card.querySelector('canvas'), formatId, newRawText, newCleanText, showSymbols, showLeft, showRight);
 
         const oldWarn = card.querySelector('.dynamic-warning');
         if(oldWarn) oldWarn.remove();
 
         if (success) {
-            canvas.style.display = 'block';
+            canvasWrapper.style.display = 'flex';
             errorOverlay.style.display = 'none';
             btnGroup.style.display = 'flex';
             
@@ -555,14 +590,14 @@
                     warnDiv.className = 'dynamic-warning';
                     warnDiv.style.cssText = 'color: #e65100; font-weight: bold; margin-bottom: 10px; font-size: 14px;';
                     warnDiv.innerHTML = `⚠️ 檢查碼錯誤 (應為 ${checkResult.expected}) <button style="padding:2px 8px; margin-left:5px; font-size:12px;" onclick="quickFixCard(this, '${checkResult.correctCode}', '${formatId}')">修正</button>`;
-                    card.insertBefore(warnDiv, canvas);
-                    canvas.style.opacity = '0.6';
+                    card.insertBefore(warnDiv, canvasWrapper);
+                    canvasWrapper.style.opacity = '0.6';
                 } else {
-                    canvas.style.opacity = '1';
+                    canvasWrapper.style.opacity = '1';
                 }
             }
         } else {
-            canvas.style.display = 'none';
+            canvasWrapper.style.display = 'none';
             if(qrContent) qrContent.style.display = 'none';
             btnGroup.style.display = 'none';
             
@@ -596,29 +631,26 @@
     function createBarcodeCard(rawText, cleanText, cand, styleClass, isValid, checkResult) {
         const card = document.createElement('div'); card.className = `barcode-card ${styleClass}`;
         
-        // v10.23: Logic for Show Symbols Checkbox
-        // Show if: 
-        // 1. Industrial legacy (Code 39, Codabar)
-        // 2. Retail (EAN/UPC/ISBN) to toggle Quiet Zone Marks (< >)
-        // 3. User already typed < or >
-        let showToggle = false;
+        let toggleHTML = '';
         let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(cand.id);
         
-        if (cand.id === 'code39' || cand.id === 'rationalizedCodabar' || isRetail || /[<>]/.test(rawText)) {
-            showToggle = true;
+        // Default Logic for Retail Markings
+        let hasLeftMark = rawText.startsWith('<');
+        let hasRightMark = rawText.endsWith('>');
+
+        if (isRetail) {
+            let leftCheck = hasLeftMark ? 'checked' : '';
+            let rightCheck = hasRightMark ? 'checked' : '';
+            toggleHTML = `
+                <div class="card-options-group">
+                    <div class="card-options"><label><input type="checkbox" class="mark-left-check" ${leftCheck} onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示左側 <</label></div>
+                    <div class="card-options"><label><input type="checkbox" class="mark-right-check" ${rightCheck} onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示右側 ></label></div>
+                </div>
+            `;
+        } else if (cand.id === 'code39' || cand.id === 'rationalizedCodabar') {
+            let checked = 'checked'; // Default ON for industrial
+            toggleHTML = `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" ${checked} onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示起止符號</label></div>`;
         }
-
-        // Determine default state: 
-        // Code 39/Codabar -> Checked by default
-        // Retail -> Checked ONLY if input contains < or >
-        // (If Retail is unchecked, it means Native Notch Mode)
-        let defaultChecked = (cand.id === 'code39' || cand.id === 'rationalizedCodabar') || /[<>]/.test(rawText);
-        let checkState = defaultChecked ? 'checked' : '';
-
-        // Label text
-        let labelText = isRetail ? "顯示靜區標記 (< >)" : "顯示起止符號";
-
-        let toggleHTML = showToggle ? `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" ${checkState} onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> ${labelText}</label></div>` : '';
         
         let densityBadge = '';
         if (cand.id === 'code128') densityBadge = '<span class="density-tag density-high">⚡ 高密度 (短)</span>';
@@ -641,7 +673,15 @@
             <div class="error-overlay"></div>
         `;
         
-        const canvas = document.createElement('canvas'); card.appendChild(canvas);
+        // v10.24: Wrapped Canvas Structure
+        const wrapper = document.createElement('div'); 
+        wrapper.className = 'canvas-wrapper';
+        wrapper.innerHTML = `
+            <span class="qz-mark left-mark">&lt;</span>
+            <canvas></canvas>
+            <span class="qz-mark right-mark">&gt;</span>
+        `;
+        card.appendChild(wrapper);
         
         if (cand.id === 'qrcode') {
             const qrDiv = document.createElement('div');
@@ -660,7 +700,7 @@
             warn.style.cssText = 'color: #e65100; font-weight: bold; margin-bottom: 10px; font-size: 14px;';
             warn.innerHTML = `⚠️ 檢查碼錯誤 (應為 ${checkResult.expected}) <button style="padding:2px 8px; margin-left:5px; font-size:12px;" onclick="quickFixCard(this, '${checkResult.correctCode}', '${cand.id}')">修正</button>`;
             card.appendChild(warn);
-            canvas.style.opacity = '0.6';
+            wrapper.style.opacity = '0.6';
         }
 
         const btnGroup = document.createElement('div'); btnGroup.className = 'btn-group';
@@ -671,18 +711,44 @@
         `;
         card.appendChild(btnGroup);
         
-        if(drawBarcodeOnCanvas(canvas, cand.id, rawText, cleanText, defaultChecked)) {
+        const canvas = wrapper.querySelector('canvas');
+        if(drawBarcodeOnCanvas(canvas, cand.id, rawText, cleanText, true, hasLeftMark, hasRightMark)) {
             resultsGrid.appendChild(card);
         }
     }
 
     window.updateCanvas = function(cb, fid, raw, clean) {
-        drawBarcodeOnCanvas(cb.closest('.barcode-card').querySelector('canvas'), fid, raw, clean, cb.checked);
+        const card = cb.closest('.barcode-card');
+        const canvas = card.querySelector('canvas');
+        
+        // Check new states
+        let showLegacy = true;
+        let showLeft = false;
+        let showRight = false;
+
+        const legacyBox = card.querySelector('.show-symbols-check');
+        if (legacyBox) showLegacy = legacyBox.checked;
+
+        const leftBox = card.querySelector('.mark-left-check');
+        if (leftBox) showLeft = leftBox.checked;
+
+        const rightBox = card.querySelector('.mark-right-check');
+        if (rightBox) showRight = rightBox.checked;
+
+        drawBarcodeOnCanvas(canvas, fid, raw, clean, showLegacy, showLeft, showRight);
     }
 
-    function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols) {
+    function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols, showLeft, showRight) {
         try {
-            // v10.23: Standard industrial styling
+            const wrapper = canvas.closest('.canvas-wrapper');
+            if (wrapper) {
+                const l = wrapper.querySelector('.left-mark');
+                const r = wrapper.querySelector('.right-mark');
+                if (l) l.className = showLeft ? 'qz-mark left-mark visible' : 'qz-mark left-mark';
+                if (r) r.className = showRight ? 'qz-mark right-mark visible' : 'qz-mark right-mark';
+            }
+
+            // v10.24: Base draw options
             let drawOpts = { 
                 bcid: formatId, 
                 scale: 3, 
@@ -694,8 +760,12 @@
 
             let processedText = rawText;
             if (formatId === 'code39') processedText = rawText.toUpperCase().replace(/\*/g, '');
-            else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) processedText = cleanText;
+            else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) {
+                // IMPORTANT: For retail, ALWAYS strip < > so native rendering works
+                processedText = cleanText; 
+            }
             
+            // ... (Logic for Codabar, SSCC, GS1 remains same as v10.23) ...
             if (formatId === 'rationalizedCodabar') {
                 let content = rawText.replace(/[A-D]/g, '');
                 let start = 'A', stop = 'A';
@@ -704,17 +774,12 @@
                 if (/^[A-D]/.test(rawText) && !/[A-D]$/.test(rawText)) { stop = start; }
                 processedText = start + content + stop;
             }
-
             if (formatId === 'sscc18') {
                 if (/^\d{18}$/.test(cleanText)) { processedText = '(00)' + cleanText; }
             } else if (formatId === 'gs1-128') {
-                if (rawText.includes('(') && rawText.includes(')')) {
-                    processedText = rawText; 
-                } else if (/^\d{14}$/.test(cleanText)) {
-                    processedText = '(01)' + cleanText; 
-                } else if (/^\d{18}$/.test(cleanText)) {
-                    processedText = '(00)' + cleanText; 
-                }
+                if (rawText.includes('(') && rawText.includes(')')) { processedText = rawText; } 
+                else if (/^\d{14}$/.test(cleanText)) { processedText = '(01)' + cleanText; } 
+                else if (/^\d{18}$/.test(cleanText)) { processedText = '(00)' + cleanText; }
             }
 
             let realBcid = formatId;
@@ -724,65 +789,39 @@
             drawOpts.text = processedText;
 
             let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(formatId);
-            
-            let displayText = rawText; 
-            
-            // v10.23: Rendering Logic
-            // If Retail:
-            //   - Checkbox ON  -> Add < > -> Force alttext -> Flat bars
-            //   - Checkbox OFF -> Native drawing -> Notched bars
-            
+            let displayText = rawText;
+
+            // v10.24: Rendering Logic
+            // Retail -> Always delete alttext to FORCE native notch.
+            // Indicators are handled by CSS classes above.
             if (isRetail) {
-                if (showSymbols) {
-                    // Checkbox ON: Add < > if they are missing
-                    let niceText = rawText.replace(/[\*<>]/g, ''); 
-                    displayText = `< ${niceText} >`; // Force format with indicators
-                    drawOpts.alttext = displayText; // This forces flat bars
-                } else {
-                    // Checkbox OFF: Native notched
-                    delete drawOpts.alttext; 
-                }
+                delete drawOpts.alttext; 
             } else {
-                // Non-retail (Code 39, Codabar)
-                if (!showSymbols) {
-                    displayText = rawText.replace(/[\*<>]/g, '');
-                } 
-                
-                if (formatId === 'code39' && showSymbols && !displayText.includes('*')) {
-                    displayText = `*${displayText}*`;
-                }
-                
+                // Non-retail
+                if (!showSymbols) { displayText = rawText.replace(/[\*<>]/g, ''); } 
+                if (formatId === 'code39' && showSymbols && !displayText.includes('*')) { displayText = `*${displayText}*`; }
                 if (formatId === 'rationalizedCodabar') {
                     if (showSymbols) { displayText = processedText; } 
                     else { displayText = processedText.replace(/[A-D]/g, ''); }
                 }
-                
                 drawOpts.alttext = displayText;
             }
 
+            // Sizing
             if (isRetail) {
                 drawOpts.height = 30; 
-                if (showSymbols) { 
-                    // If showing symbols (flat), adjusting font size might look better
-                    drawOpts.textsize = 13;
-                }
-            } else if (formatId === 'code39' || formatId === 'rationalizedCodabar') {
-                drawOpts.height = 15; drawOpts.textxalign = 'center';
+                // No text styling -> Use Native
             } else if (formatId === 'itf14') {
-                drawOpts.height = 35; drawOpts.bearerbars = true; drawOpts.textxalign = 'center'; drawOpts.textsize = 16; drawOpts.textyoffset = 5;
+                drawOpts.height = 35; drawOpts.textsize = 16; drawOpts.textyoffset = 5; drawOpts.bearerbars = true; drawOpts.textxalign = 'center';
             } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
-                drawOpts.height = 30; drawOpts.textxalign = 'center'; 
+                drawOpts.height = 30; drawOpts.textsize = 13; drawOpts.textyoffset = 2; drawOpts.textxalign = 'center'; 
                 if (displayText.includes('(')) drawOpts.alttext = displayText;
             } else {
-                drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
+                drawOpts.height = 20; drawOpts.textsize = 13; drawOpts.textxalign = 'center'; drawOpts.textyoffset = 2;
             }
             
             if (formatId === 'qrcode') { 
-                drawOpts.scale = 12; 
-                drawOpts.includetext = false; 
-                delete drawOpts.height; 
-                delete drawOpts.alttext; 
-                delete drawOpts.textyoffset;
+                drawOpts.scale = 12; drawOpts.includetext = false; delete drawOpts.height; delete drawOpts.alttext; delete drawOpts.textyoffset;
             }
 
             canvas.dataset.drawOpts = JSON.stringify(drawOpts);
