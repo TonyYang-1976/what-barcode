@@ -515,6 +515,7 @@
         
         card.querySelector('.edit-panel').style.display = 'none';
         
+        // Fix: checkbox can be null if format doesn't support it, handle graceful
         const showSymbols = checkbox ? checkbox.checked : true;
         const success = drawBarcodeOnCanvas(canvas, formatId, newRawText, newCleanText, showSymbols);
 
@@ -595,7 +596,6 @@
         
         let showToggle = false;
         if (cand.id === 'code39' || cand.id === 'rationalizedCodabar') showToggle = true;
-        if (/[<>]/.test(rawText)) showToggle = true;
 
         let toggleHTML = showToggle ? `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" checked onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示起止符號</label></div>` : '';
         
