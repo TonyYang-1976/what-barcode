@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.28)</title>
+    <title>條碼檢核 What barcode (v10.29)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Roboto:wght@300;500&family=JetBrains+Mono&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=OCR-B:wght@400&family=Space+Mono:wght@400;700&display=swap');
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei UI", sans-serif; 
@@ -338,14 +337,12 @@
         const hasSpace = /\s/.test(rawText);
         let list = [];
 
-        // 1. Codabar
         if (/^[A-D]?[0-9\-\$\:\/\.\+]+[A-D]?$/.test(rawText)) {
              let score = 120;
              if (/^[A-D].*[A-D]$/.test(rawText)) score += 150; 
              list.push({ id: 'rationalizedCodabar', name: 'Codabar (NW-7)', desc: '圖書館/血庫', isStandard: true, score: score, type: 'Codabar' });
         }
 
-        // 2. Code 39
         if (isCode39Prefixed || /^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) {
              let score = 130; 
              if (rawText.includes('*')) score += 200; 
@@ -353,27 +350,23 @@
              list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', isStandard: true, score: score, type: 'Code 39' });
         }
 
-        // 3. GS1-128
         if (isGS1Prefixed) {
              list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 250, type: 'GS1-128' });
         } 
         else if (rawText.includes('(') && rawText.includes(')')) {
              list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 250, type: 'GS1-128' });
         } else if (/^01\d{14}/.test(rawText) || /^00\d{18}/.test(rawText)) {
-             list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 220, type: 'GS1-128' });
+             list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 180, type: 'GS1-128' });
         }
 
-        // 4. Code 128
         if (/^[\x00-\x7F]+$/.test(rawText)) {
             let score = 100;
             if (/[a-z]/.test(rawText)) score += 50; 
             list.push({ id: 'code128', name: 'Code 128', desc: '高密度/通用', isStandard: false, score: score, type: 'Code 128' });
         }
 
-        // 5. GS1 Retail
         if (/^\d+$/.test(cleanText) && !hasSpace) {
             const len = cleanText.length;
-            
             if (len === 6 || (len === 8 && (cleanText.startsWith('0') || cleanText.startsWith('1')))) {
                 list.push({ id: 'upce', name: 'UPC-E (GTIN-12)', desc: '美加縮短碼', isStandard: true, score: 220, type: 'UPC-E' });
             }
@@ -683,44 +676,56 @@
     }
 
     window.updateCanvas = function(cb, fid, raw, clean) {
-        drawBarcodeOnCanvas(cb.closest('.barcode-card').querySelector('canvas'), fid, raw, clean, cb.checked);
+        const card = cb.closest('.barcode-card');
+        const canvas = card.querySelector('canvas');
+        
+        let showLegacy = true;
+        let showLeft = false;
+        let showRight = false;
+
+        const legacyBox = card.querySelector('.show-symbols-check');
+        if (legacyBox) showLegacy = legacyBox.checked;
+
+        const leftBox = card.querySelector('.mark-left-check');
+        if (leftBox) showLeft = leftBox.checked;
+
+        const rightBox = card.querySelector('.mark-right-check');
+        if (rightBox) showRight = rightBox.checked;
+
+        drawBarcodeOnCanvas(canvas, fid, raw, clean, showLegacy, showLeft, showRight);
     }
 
-    // v10.27: Unified Injector Function
-    // Handles both Preview and Download (PNG) injection
+    // v10.29: Unified Injector Function
     function injectQuietZoneMarks(canvas, scaleFactor, showLeft, showRight) {
         if (!showLeft && !showRight) return;
 
         const ctx = canvas.getContext('2d');
         ctx.save();
         
-        // Font: 13pt * Scale. Use OCR-B or Space Mono.
-        let fontSize = 13 * scaleFactor;
-        ctx.font = `bold ${fontSize}px "OCR-B", "Space Mono", monospace`; 
+        // Font: 14pt * Scale. Use generic monospace to ensure visibility on all devices
+        let fontSize = 14 * scaleFactor;
+        ctx.font = `bold ${fontSize}px Consolas, "Courier New", monospace`; 
         ctx.fillStyle = '#000000';
         
-        // v10.27 Alignment Fix:
-        // Use 'alphabetic' baseline to match native text baseline
-        // Use 'start'/'end' to align tight against padding boundary
-        ctx.textBaseline = 'alphabetic';
+        // Alignment: Bottom Baseline
+        ctx.textBaseline = 'bottom';
         
-        // Y Position: Height - (Font Descent approx)
-        // 5*scale is bottom margin. Numbers sit roughly 1*scale above bottom.
-        // Trial & Error shows height - 2*scale is usually good for alphabetic baseline
-        let yPos = canvas.height - (3 * scaleFactor); 
+        // Y Position: Bottom of canvas (paddingheight=10 usually keeps text well inside)
+        // With paddingheight=10, the barcode text bottom is usually around height - 2*scale
+        let yPos = canvas.height; 
         
-        // Padding Width where marks live (15 * scale)
-        let padPx = 15 * scaleFactor;
+        // Padding Width where marks live (8 * scale is tight)
+        let padPx = 8 * scaleFactor;
         
         if (showLeft) {
-            ctx.textAlign = 'right';
-            // Draw at padding edge (minus 2px margin)
-            ctx.fillText('<', padPx - (2 * scaleFactor), yPos);
+            ctx.textAlign = 'center';
+            // Draw inside the left padding (center of 8 unit width is 4)
+            ctx.fillText('<', padPx / 2, yPos);
         }
         if (showRight) {
-            ctx.textAlign = 'left';
-            // Draw at width - padding edge (plus 2px margin)
-            ctx.fillText('>', canvas.width - padPx + (2 * scaleFactor), yPos);
+            ctx.textAlign = 'center';
+            // Draw inside the right padding
+            ctx.fillText('>', canvas.width - (padPx / 2), yPos);
         }
         ctx.restore();
     }
@@ -728,12 +733,12 @@
     function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols, showLeft, showRight) {
         try {
             let scaleFactor = 3;
-            // v10.27: Padding 15 to allow space for < >
+            // v10.29: Tight Padding (8 units) for Close Proximity
             let drawOpts = { 
                 bcid: formatId, 
                 scale: scaleFactor, 
                 includetext: true,
-                paddingwidth: 15,
+                paddingwidth: 8, 
                 paddingheight: 10,
                 backgroundcolor: 'ffffff'
             };
@@ -783,7 +788,6 @@
 
             if (isRetail) {
                 drawOpts.height = 30; 
-                // v10.27: Ensure font size matches injected marks
                 drawOpts.textsize = 13; 
             } else if (formatId === 'itf14') {
                 drawOpts.height = 35; drawOpts.textsize = 16; drawOpts.textyoffset = 5; drawOpts.bearerbars = true; drawOpts.textxalign = 'center';
@@ -798,13 +802,12 @@
                 drawOpts.scale = 12; drawOpts.includetext = false; delete drawOpts.height; delete drawOpts.alttext; delete drawOpts.textyoffset;
             }
 
-            // Save opts for download re-use
             canvas.dataset.drawOpts = JSON.stringify(drawOpts);
             
-            // Draw
+            // Draw base barcode
             bwipjs.toCanvas(canvas, drawOpts);
 
-            // v10.27: Inject Marks
+            // Inject marks (Preview)
             if (isRetail) {
                 injectQuietZoneMarks(canvas, scaleFactor, showLeft, showRight);
             }
@@ -813,32 +816,29 @@
         } catch (e) { return false; }
     }
 
-    // v10.27: SVG Injection Logic
+    // v10.29: SVG Injection Logic
     function injectMarksIntoSVG(svgString, showLeft, showRight) {
         if (!showLeft && !showRight) return svgString;
 
-        // Parse viewBox to get dimensions: viewBox="0 0 100 50"
         let match = svgString.match(/viewBox="0 0 (\d+) (\d+)"/);
         if (!match) return svgString;
         
         let width = parseInt(match[1]);
         let height = parseInt(match[2]);
         
-        // Standard padding set in options was 15 (unscaled units in SVG usually)
-        let pad = 15; 
-        let yPos = height - 3; // Approx alignment
+        // Pad 8 means mark center is at 4
+        let yPos = height; 
         
         let marks = '';
-        let style = 'font-family: OCR-B, Space Mono, monospace; font-weight: bold; font-size: 13px; fill: #000000;';
+        let style = 'font-family: Consolas, monospace; font-weight: bold; font-size: 14px; fill: #000000;';
         
         if (showLeft) {
-            marks += `<text x="${pad - 2}" y="${yPos}" text-anchor="end" style="${style}">&lt;</text>`;
+            marks += `<text x="4" y="${yPos}" text-anchor="middle" style="${style}">&lt;</text>`;
         }
         if (showRight) {
-            marks += `<text x="${width - pad + 2}" y="${yPos}" text-anchor="start" style="${style}">&gt;</text>`;
+            marks += `<text x="${width - 4}" y="${yPos}" text-anchor="middle" style="${style}">&gt;</text>`;
         }
         
-        // Insert before closing tag
         return svgString.replace('</svg>', marks + '</svg>');
     }
 
@@ -848,20 +848,19 @@
         
         let opts = JSON.parse(canvas.dataset.drawOpts);
         
-        // Check flags from UI
         const card = btn.closest('.barcode-card');
         const leftCheck = card.querySelector('.mark-left-check');
         const rightCheck = card.querySelector('.mark-right-check');
         const showLeft = leftCheck ? leftCheck.checked : false;
         const showRight = rightCheck ? rightCheck.checked : false;
-        let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(opts.bcid) || opts.bcid === 'ean13'; // isbn becomes ean13
+        let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(opts.bcid) || opts.bcid === 'ean13'; 
 
         const createHighRes = (scaleFactor) => {
-            opts.scale = scaleFactor; // High res scale
+            opts.scale = scaleFactor; 
             const offscreenCanvas = document.createElement('canvas');
             try {
                 bwipjs.toCanvas(offscreenCanvas, opts);
-                // v10.27: Re-inject marks for PNG download
+                // v10.29: Re-inject marks for PNG download using new high-res context
                 if (isRetail) {
                     injectQuietZoneMarks(offscreenCanvas, scaleFactor, showLeft, showRight);
                 }
@@ -885,7 +884,6 @@
         try {
             let s = bwipjs.toSVG(opts);
             
-            // v10.27: SVG Injection
             const card = btn.closest('.barcode-card');
             const leftCheck = card.querySelector('.mark-left-check');
             const rightCheck = card.querySelector('.mark-right-check');
