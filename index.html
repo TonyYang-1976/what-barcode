@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.32)</title>
+    <title>條碼檢核 What barcode (v10.33)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Roboto:wght@300;500&family=JetBrains+Mono&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=OCR-B:wght@400&family=Space+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei UI", sans-serif; 
@@ -708,17 +708,17 @@
         const ctx = canvas.getContext('2d');
         ctx.save();
         
-        // v10.32: Font size match
-        let fontSize = 12 * scaleFactor;
+        // v10.33: Font same size as numbers
+        let fontSize = 13 * scaleFactor;
         ctx.font = `bold ${fontSize}px "Space Mono", Consolas, monospace`; 
         ctx.fillStyle = '#000000';
         
-        // v10.32: Y-Axis Alignment - Sync with textyoffset gap
-        // Height - PaddingHeight(10) + Small Correction
+        // v10.33: Y-Axis Lock to Baseline
         ctx.textBaseline = 'bottom';
+        // Height - Bottom Padding (2)
         let yPos = canvas.height - (2 * scaleFactor); 
         
-        // X-Positioning: Tight against the bars
+        // X-Positioning: Tight
         let padPx = 15 * scaleFactor; 
         
         if (showLeft) {
@@ -735,7 +735,7 @@
     function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols, showLeft, showRight) {
         try {
             let scaleFactor = 3;
-            // v10.32: Restore Gap Logic
+            // v10.33: Physical Separation Logic
             let drawOpts = { 
                 bcid: formatId, 
                 scale: scaleFactor, 
@@ -751,6 +751,7 @@
                 processedText = cleanText; 
             }
             
+            // ... (Logic for Codabar, SSCC, GS1 remains same) ...
             if (formatId === 'rationalizedCodabar') {
                 let content = rawText.replace(/[A-D]/g, '');
                 let start = 'A', stop = 'A';
@@ -778,9 +779,10 @@
 
             if (isRetail) {
                 delete drawOpts.alttext; 
-                // v10.32: Vertical Spacing Fix
-                drawOpts.textyoffset = 4; // Create spacing between bars and numbers
-                drawOpts.textsize = 12;   // Prevent massive auto-scaling
+                // v10.33: Force Bar Height Reduction to create gap
+                drawOpts.barheight = 20; // Shorter bars
+                drawOpts.textyoffset = 4; // Gap below bars
+                drawOpts.textsize = 13;   // Fixed text size
             } else {
                 if (!showSymbols) { displayText = rawText.replace(/[\*<>]/g, ''); } 
                 if (formatId === 'code39' && showSymbols && !displayText.includes('*')) { displayText = `*${displayText}*`; }
@@ -792,7 +794,7 @@
             }
 
             if (isRetail) {
-                drawOpts.height = 28; // Slightly shorter bars to accommodate gap
+                // Height is controlled by barheight property now
             } else if (formatId === 'itf14') {
                 drawOpts.height = 35; drawOpts.textsize = 16; drawOpts.textyoffset = 5; drawOpts.bearerbars = true; drawOpts.textxalign = 'center';
             } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
@@ -817,6 +819,7 @@
         } catch (e) { return false; }
     }
 
+    // v10.33: SVG Injection with Text Offset
     function injectMarksIntoSVG(svgString, showLeft, showRight) {
         if (!showLeft && !showRight) return svgString;
 
@@ -826,11 +829,12 @@
         let width = parseInt(match[1]);
         let height = parseInt(match[2]);
         
-        // v10.32 SVG Y Position: Lift up to align with spaced text
-        let yPos = height - 4; 
+        // With textyoffset=4, text is pushed down. Mark needs to match.
+        // Approx height - 2 (bottom padding)
+        let yPos = height - 2; 
         
         let marks = '';
-        let style = 'font-family: "Space Mono", Consolas, monospace; font-weight: bold; font-size: 12px; fill: #000000;';
+        let style = 'font-family: "Space Mono", Consolas, monospace; font-weight: bold; font-size: 13px; fill: #000000;';
         
         if (showLeft) {
             marks += `<text x="13" y="${yPos}" text-anchor="end" style="${style}">&lt;</text>`;
