@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.31)</title>
+    <title>條碼檢核 What barcode (v10.32)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Roboto:wght@300;500&family=JetBrains+Mono&display=swap');
-        /* 引入等寬字體與 OCR-B 風格 */
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=OCR-B:wght@400&family=Space+Mono:wght@400;700&display=swap');
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei UI", sans-serif; 
@@ -703,25 +702,24 @@
         drawBarcodeOnCanvas(canvas, fid, raw, clean, showLegacy, showLeft, showRight);
     }
 
-    // v10.31: Improved Injection Logic with Y-Axis Calibration
     function injectQuietZoneMarks(canvas, scaleFactor, showLeft, showRight) {
         if (!showLeft && !showRight) return;
 
         const ctx = canvas.getContext('2d');
         ctx.save();
         
-        // Font: 13pt to match bwip-js default size
-        let fontSize = 13 * scaleFactor;
+        // v10.32: Font size match
+        let fontSize = 12 * scaleFactor;
         ctx.font = `bold ${fontSize}px "Space Mono", Consolas, monospace`; 
         ctx.fillStyle = '#000000';
         
-        // v10.31: Y-Axis Alignment Lift
-        // Using 'bottom' baseline, we lift it up by approx 6*scale to match the textyoffset gap
+        // v10.32: Y-Axis Alignment - Sync with textyoffset gap
+        // Height - PaddingHeight(10) + Small Correction
         ctx.textBaseline = 'bottom';
-        let yPos = canvas.height - (6 * scaleFactor); 
+        let yPos = canvas.height - (2 * scaleFactor); 
         
-        // X-Positioning
-        let padPx = 15 * scaleFactor; // Matches paddingwidth in drawOpts
+        // X-Positioning: Tight against the bars
+        let padPx = 15 * scaleFactor; 
         
         if (showLeft) {
             ctx.textAlign = 'right';
@@ -737,6 +735,7 @@
     function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols, showLeft, showRight) {
         try {
             let scaleFactor = 3;
+            // v10.32: Restore Gap Logic
             let drawOpts = { 
                 bcid: formatId, 
                 scale: scaleFactor, 
@@ -779,9 +778,9 @@
 
             if (isRetail) {
                 delete drawOpts.alttext; 
-                // v10.31: Restore text gap for native notch
-                drawOpts.textyoffset = 5; 
-                drawOpts.textsize = 13; // Explicit size match
+                // v10.32: Vertical Spacing Fix
+                drawOpts.textyoffset = 4; // Create spacing between bars and numbers
+                drawOpts.textsize = 12;   // Prevent massive auto-scaling
             } else {
                 if (!showSymbols) { displayText = rawText.replace(/[\*<>]/g, ''); } 
                 if (formatId === 'code39' && showSymbols && !displayText.includes('*')) { displayText = `*${displayText}*`; }
@@ -793,7 +792,7 @@
             }
 
             if (isRetail) {
-                drawOpts.height = 30; 
+                drawOpts.height = 28; // Slightly shorter bars to accommodate gap
             } else if (formatId === 'itf14') {
                 drawOpts.height = 35; drawOpts.textsize = 16; drawOpts.textyoffset = 5; drawOpts.bearerbars = true; drawOpts.textxalign = 'center';
             } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
@@ -818,7 +817,6 @@
         } catch (e) { return false; }
     }
 
-    // v10.31: SVG Injection with Y-Axis Calibration
     function injectMarksIntoSVG(svgString, showLeft, showRight) {
         if (!showLeft && !showRight) return svgString;
 
@@ -828,13 +826,11 @@
         let width = parseInt(match[1]);
         let height = parseInt(match[2]);
         
-        // Pad 15 means anchor at ~13
-        // Y Position needs to be lifted up significantly to match textyoffset=5
-        // Trial shows height - 6 is a good approximation for SVG units
-        let yPos = height - 6; 
+        // v10.32 SVG Y Position: Lift up to align with spaced text
+        let yPos = height - 4; 
         
         let marks = '';
-        let style = 'font-family: "Space Mono", Consolas, monospace; font-weight: bold; font-size: 13px; fill: #000000;';
+        let style = 'font-family: "Space Mono", Consolas, monospace; font-weight: bold; font-size: 12px; fill: #000000;';
         
         if (showLeft) {
             marks += `<text x="13" y="${yPos}" text-anchor="end" style="${style}">&lt;</text>`;
