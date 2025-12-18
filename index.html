@@ -713,12 +713,13 @@
         ctx.font = `bold ${fontSize}px "Space Mono", Consolas, monospace`; 
         ctx.fillStyle = '#000000';
         
-        // v10.33: Y-Axis Lock to Baseline
+        // v10.33: Relative Positioning based on canvas height (Total = 20(bar) + 4(gap) + 10(text) + 2(pad) = ~36 units)
+        // Text Baseline 'bottom' aligns with the very bottom of the canvas
+        // Height - 2*scale corresponds to bottom padding
         ctx.textBaseline = 'bottom';
-        // Height - Bottom Padding (2)
         let yPos = canvas.height - (2 * scaleFactor); 
         
-        // X-Positioning: Tight
+        // X-Positioning
         let padPx = 15 * scaleFactor; 
         
         if (showLeft) {
@@ -735,13 +736,12 @@
     function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols, showLeft, showRight) {
         try {
             let scaleFactor = 3;
-            // v10.33: Physical Separation Logic
             let drawOpts = { 
                 bcid: formatId, 
                 scale: scaleFactor, 
                 includetext: true,
                 paddingwidth: 15, 
-                paddingheight: 10,
+                paddingheight: 2, // Minimal bottom padding, space created by textyoffset
                 backgroundcolor: 'ffffff'
             };
 
@@ -751,7 +751,6 @@
                 processedText = cleanText; 
             }
             
-            // ... (Logic for Codabar, SSCC, GS1 remains same) ...
             if (formatId === 'rationalizedCodabar') {
                 let content = rawText.replace(/[A-D]/g, '');
                 let start = 'A', stop = 'A';
@@ -779,10 +778,10 @@
 
             if (isRetail) {
                 delete drawOpts.alttext; 
-                // v10.33: Force Bar Height Reduction to create gap
-                drawOpts.barheight = 20; // Shorter bars
-                drawOpts.textyoffset = 4; // Gap below bars
-                drawOpts.textsize = 13;   // Fixed text size
+                // v10.33: Physical Separation
+                drawOpts.barheight = 20; // Force short bars
+                drawOpts.textyoffset = 4; // Force gap
+                drawOpts.textsize = 13;   // Force font size
             } else {
                 if (!showSymbols) { displayText = rawText.replace(/[\*<>]/g, ''); } 
                 if (formatId === 'code39' && showSymbols && !displayText.includes('*')) { displayText = `*${displayText}*`; }
@@ -794,7 +793,7 @@
             }
 
             if (isRetail) {
-                // Height is controlled by barheight property now
+                // Height controlled by barheight
             } else if (formatId === 'itf14') {
                 drawOpts.height = 35; drawOpts.textsize = 16; drawOpts.textyoffset = 5; drawOpts.bearerbars = true; drawOpts.textxalign = 'center';
             } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
@@ -819,7 +818,6 @@
         } catch (e) { return false; }
     }
 
-    // v10.33: SVG Injection with Text Offset
     function injectMarksIntoSVG(svgString, showLeft, showRight) {
         if (!showLeft && !showRight) return svgString;
 
@@ -829,8 +827,7 @@
         let width = parseInt(match[1]);
         let height = parseInt(match[2]);
         
-        // With textyoffset=4, text is pushed down. Mark needs to match.
-        // Approx height - 2 (bottom padding)
+        // v10.33 SVG Y: Align with bottom text
         let yPos = height - 2; 
         
         let marks = '';
