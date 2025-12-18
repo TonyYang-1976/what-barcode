@@ -3,77 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.34)</title>
+    <title>條碼檢核 What barcode (v10.35)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
-        /* 引入 Google Fonts: Space Mono (類 OCR-B) */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Roboto:wght@300;500&family=JetBrains+Mono&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Roboto:wght@300;500&display=swap');
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif; 
-            background-color: #f0f2f5; margin: 0; padding: 20px; 
+            background-color: #f0f2f5; margin: 0; padding: 15px; -webkit-font-smoothing: antialiased; 
         }
         
         .main-container { 
             max-width: 850px; margin: 0 auto; background-color: white; 
-            padding: 40px; border-radius: 16px; 
+            padding: 30px; border-radius: 16px; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
             border-top: 5px solid #0055AA; 
         }
 
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #eaeff2; padding-bottom: 20px; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #eaeff2; padding-bottom: 15px; }
+        .title-group { display: flex; flex-direction: column; }
+        
         .main-title { 
-            font-size: 32px; font-weight: 900; 
+            font-size: 28px; font-weight: 900; 
             background: linear-gradient(135deg, #002B5B 0%, #0055AA 100%); 
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
+            line-height: 1.2;
         }
-        .sub-title { font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 300; color: #5f6c7b; }
         
-        .status-badge { padding: 8px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .sub-title { font-size: 18px; font-weight: 300; color: #5f6c7b; }
+        
+        .status-badge { padding: 6px 12px; border-radius: 30px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
         .status-online { background-color: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
         .status-offline { background-color: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
         .status-error { background-color: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: currentColor; box-shadow: 0 0 5px currentColor; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: currentColor; }
 
-        .input-area { position: sticky; top: 0; background: white; z-index: 100; padding-bottom: 20px; margin-bottom: 10px; display: flex; gap: 10px; }
+        .input-area { position: sticky; top: 0; background: white; z-index: 100; padding-bottom: 15px; margin-bottom: 10px; display: flex; gap: 8px; }
+        
         input[type="text"].main-input { 
-            flex: 1; padding: 18px; font-size: 28px; text-align: center; 
-            border: 2px solid #e2e8f0; border-radius: 12px; outline: none; font-weight: bold; letter-spacing: 3px; background: #f8fafc;
+            flex: 1; min-width: 0; padding: 15px; font-size: 24px; text-align: center; 
+            border: 2px solid #e2e8f0; border-radius: 12px; outline: none; 
+            font-weight: bold; letter-spacing: 2px; color: #334155; transition: all 0.3s; background: #f8fafc;
         }
         input[type="text"].main-input:focus { border-color: #0055AA; background: #fff; }
-        .camera-btn { padding: 0 25px; font-size: 24px; cursor: pointer; background-color: #0055AA; color: white; border: none; border-radius: 12px; }
+        
+        .camera-btn {
+            padding: 0 20px; font-size: 22px; cursor: pointer;
+            background-color: #0055AA; color: white; border: none; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
         .camera-btn.active { background-color: #dc2626; }
 
         #reader-container { width: 100%; margin-bottom: 20px; display: none; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; background: #000; }
         #reader { width: 100%; }
 
-        .results-grid { display: grid; grid-template-columns: 1fr; gap: 25px; }
-        .barcode-card { border-radius: 12px; padding: 30px; background: #fff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; }
-        .card-best-match { border: 2px solid #28a745; background: linear-gradient(to bottom, #f0fff4 0%, #ffffff 100%); transform: scale(1.01); z-index: 10; }
-        .card-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; }
+        .results-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
         
-        /* v10.34: Checkbox Group Styling */
-        .card-options-group { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
-        .card-options { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; }
-        .card-options label { cursor: pointer; display: flex; align-items: center; gap: 4px; user-select: none; }
-        .card-options input { accent-color: #0055AA; width: 16px; height: 16px; }
-
-        canvas { display: block; max-width: 100%; height: auto !important; image-rendering: pixelated; background-color: white; border-radius: 8px; border: 1px solid #f1f5f9; margin-bottom: 10px; }
+        .barcode-card { border-radius: 12px; padding: 25px; background: #fff; display: flex; flex-direction: column; align-items: center; position: relative; border: 1px solid #e2e8f0; transition: all 0.3s; }
+        .card-best-match { border: 2px solid #28a745; background: linear-gradient(to bottom, #f0fff4 0%, #ffffff 100%); box-shadow: 0 10px 25px rgba(40, 167, 69, 0.12); transform: scale(1.01); z-index: 10; }
+        .card-best-match::before { content: "🏆 最佳吻合"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #28a745; color: white; padding: 4px 15px; border-radius: 20px; font-size: 13px; font-weight: bold; white-space: nowrap; }
         
-        .btn-group { display: flex; gap: 12px; width: 100%; margin-top: 10px; }
-        button { flex: 1; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 8px; color: #475569; display: flex; align-items: center; justify-content: center; gap: 6px; }
-        button:hover { background-color: #f0f9ff; border-color: #0055AA; color: #0055AA; }
-
-        .edit-panel { width: 100%; display: none; flex-direction: column; gap: 12px; background: #f8fafc; padding: 20px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 20px; }
-        .edit-input { width: 100%; padding: 10px; font-size: 18px; border: 2px solid #0055AA; border-radius: 6px; text-align: center; font-weight: bold; }
-        .btn-save { background-color: #0055AA; color: white !important; border: none; }
-
-        .density-tag { font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 4px; margin-left: 8px; display: inline-block; vertical-align: middle; }
+        .card-header { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; flex-wrap: wrap; gap: 10px; }
+        .header-left { display: flex; flex-direction: column; }
+        .format-name { font-size: 22px; font-weight: 800; color: #1e293b; letter-spacing: -0.5px; }
+        .format-tag { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500; }
+        
+        /* Mobile Responsive Options */
+        .card-options-group { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; width: auto; }
+        .card-options { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; white-space: nowrap; }
+        .card-options input { accent-color: #0055AA; width: 16px; height: 16px; cursor: pointer; }
+        .card-options label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+        
+        /* Density Tag */
+        .density-tag { font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-left: 6px; display: inline-block; vertical-align: middle; }
         .density-high { background-color: #e0f7fa; color: #006064; border: 1px solid #b2ebf2; }
         .density-low { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
+
+        canvas { display: block; max-width: 100%; height: auto !important; image-rendering: pixelated; background-color: white; padding: 0; border-radius: 8px; border: 1px solid #f1f5f9; margin-bottom: 10px; }
+
+        .btn-group { display: flex; gap: 10px; width: 100%; margin-top: 5px; flex-wrap: wrap; }
+        button { flex: 1; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 8px; color: #475569; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 100px; }
+        button:hover { background-color: #f0f9ff; border-color: #0055AA; color: #0055AA; }
+        
+        .edit-panel { width: 100%; display: none; flex-direction: column; gap: 10px; background: #f8fafc; padding: 15px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 15px; }
+        .edit-input { width: 100%; padding: 10px; font-size: 18px; border: 2px solid #0055AA; border-radius: 6px; text-align: center; font-weight: bold; box-sizing: border-box; }
+        .edit-actions { display: flex; gap: 10px; }
+        .btn-save { background-color: #0055AA; color: white !important; border: none; }
+
+        .empty-state { color: #94a3b8; font-size: 16px; margin-top: 30px; text-align: center; font-weight: 500;}
+
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .main-container { padding: 15px; }
+            .header-row { flex-direction: row; justify-content: space-between; }
+            .main-title { font-size: 22px; }
+            .sub-title { font-size: 14px; }
+            .status-badge { display: none; } /* Hide status on tiny screens to save space */
+            .card-header { flex-direction: column; align-items: flex-start; }
+            .card-options-group { width: 100%; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; }
+            .card-options { flex: 1; justify-content: center; }
+            input[type="text"].main-input { font-size: 20px; padding: 12px; }
+        }
     </style>
 </head>
 <body>
@@ -82,7 +115,7 @@
     <div class="header-row">
         <div class="title-group">
             <div class="main-title">條碼檢核</div>
-            <div class="sub-title">What barcode (v10.34)</div>
+            <div class="sub-title">What barcode (v10.35)</div>
         </div>
         <div id="statusBadge" class="status-badge status-offline"><span class="status-dot"></span> <span id="statusText">檢查中...</span></div>
     </div>
@@ -94,21 +127,21 @@
         <button id="cameraBtn" class="camera-btn" onclick="toggleCamera()">📷</button>
     </div>
 
-    <div id="resultsGrid" class="results-grid"><div class="empty-state" style="text-align:center; color:#94a3b8; margin-top:30px;">等待輸入...</div></div>
+    <div id="resultsGrid" class="results-grid"><div class="empty-state">等待輸入...</div></div>
 </div>
 
 <script>
     const inputData = document.getElementById('inputData');
     const resultsGrid = document.getElementById('resultsGrid');
     const statusBadge = document.getElementById('statusBadge');
+    
     let debounceTimer, html5QrCode, isCameraRunning = false;
 
     window.onload = updateSystemStatus;
     function updateSystemStatus() {
         if (typeof bwipjs === 'undefined') {
             statusBadge.className = 'status-badge status-error';
-            document.getElementById('statusText').textContent = "核心載入失敗";
-            return;
+            document.getElementById('statusText').textContent = "核心載入失敗"; return;
         }
         statusBadge.className = navigator.onLine ? 'status-badge status-online' : 'status-badge status-offline';
         document.getElementById('statusText').textContent = navigator.onLine ? "連線正常" : "離線模式";
@@ -134,6 +167,7 @@
         debounceTimer = setTimeout(() => { analyzeAndRender(inputData.value.trim().toUpperCase()); }, 300);
     });
 
+    // --- 核心邏輯恢復 (Restored from v10.33) ---
     function checkEAN8Checksum(text) {
         if (!/^\d{8}$/.test(text)) return false;
         let sum = 0; for (let i = 0; i < 7; i++) sum += parseInt(text[i]) * (i % 2 === 0 ? 3 : 1);
@@ -141,36 +175,72 @@
     }
 
     function getCandidates(rawText) {
+        // 使用嚴格的原始邏輯，確保正確辨識
         let isGS1Prefixed = rawText.startsWith(']C1') || rawText.startsWith(']c1');
         let isCode39Prefixed = rawText.startsWith(']A0') || rawText.startsWith(']a0');
-        let cleanText = rawText.replace(/[-\s\*\(\)<>\]A0C1c1a0]/g, '');
+        let cleanText = rawText.replace(/[-\s\*\(\)<>\]A0C1c1a0]/g, ''); // 深度清理
         let list = [];
 
-        if (/^[A-D]?[0-9\-\$\:\/\.\+]+[A-D]?$/.test(rawText)) list.push({ id: 'rationalizedCodabar', name: 'Codabar (NW-7)', desc: '圖書館/血庫', score: 120 });
-        if (isCode39Prefixed || /^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', score: 130 });
-        if (isGS1Prefixed || /^01\d{14}/.test(cleanText)) list.push({ id: 'gs1-128', name: 'GS1-128', desc: '物流標準', score: 250 });
-        if (/^[\x00-\x7F]+$/.test(rawText)) list.push({ id: 'code128', name: 'Code 128', desc: '通用標準', score: 100 });
+        // Codabar
+        if (/^[A-D]?[0-9\-\$\:\/\.\+]+[A-D]?$/.test(rawText)) {
+             let score = 120;
+             if (/^[A-D].*[A-D]$/.test(rawText)) score += 150; 
+             list.push({ id: 'rationalizedCodabar', name: 'Codabar (NW-7)', desc: '圖書館/血庫', score: score });
+        }
 
+        // Code 39
+        if (isCode39Prefixed || /^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) {
+             let score = 130;
+             if (rawText.includes('*')) score += 200;
+             if (isCode39Prefixed) score = 220;
+             list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', score: score });
+        }
+
+        // GS1-128
+        if (isGS1Prefixed || rawText.includes('(') || /^01\d{14}/.test(rawText)) {
+             list.push({ id: 'gs1-128', name: 'GS1-128', desc: '物流標準', score: 250 });
+        }
+
+        // Code 128 (Generic)
+        if (/^[\x00-\x7F]+$/.test(rawText)) {
+            let score = 100;
+            if (/[a-z]/.test(rawText)) score += 50; 
+            list.push({ id: 'code128', name: 'Code 128', desc: '通用標準', score: score });
+        }
+
+        // EAN / UPC (Retail)
         if (/^\d+$/.test(cleanText)) {
-            let len = cleanText.length;
-            if (len === 8) list.push({ id: 'ean8', name: 'EAN-8', desc: '零售短碼', score: 250 });
-            else if (len === 12) list.push({ id: 'upca', name: 'UPC-A', desc: '美加標準', score: 250 });
-            else if (len === 13) list.push({ id: 'ean13', name: 'EAN-13', desc: '零售標準', score: 250 });
-            else if (len === 14) list.push({ id: 'itf14', name: 'ITF-14', desc: '外箱條碼', score: 250 });
+            const len = cleanText.length;
+            if (len === 6 || (len === 8 && (cleanText.startsWith('0') || cleanText.startsWith('1')))) 
+                list.push({ id: 'upce', name: 'UPC-E', desc: '美加縮短碼', score: 220 });
+            
+            if (len === 8) 
+                list.push({ id: 'ean8', name: 'EAN-8', desc: '零售短碼', score: 250 });
+            
+            else if (len === 12) 
+                list.push({ id: 'upca', name: 'UPC-A', desc: '美加標準碼', score: 250 });
+            
+            else if (len === 13) {
+                if (cleanText.startsWith('978')) list.push({ id: 'isbn', name: 'ISBN-13', desc: '書籍碼', score: 250 });
+                else list.push({ id: 'ean13', name: 'EAN-13', desc: '零售標準碼', score: 250 });
+            }
+            else if (len === 14) {
+                list.push({ id: 'itf14', name: 'ITF-14', desc: '外箱條碼', score: 250 });
+                if (!isGS1Prefixed) list.push({ id: 'gs1-128', name: 'GS1-128 (SCC-14)', desc: '物流標籤', score: 240 });
+            }
         }
         return list.sort((a, b) => b.score - a.score);
     }
 
     function analyzeAndRender(text) {
         resultsGrid.innerHTML = "";
-        if (!text) { resultsGrid.innerHTML = '<div class="empty-state" style="text-align:center;">等待輸入...</div>'; return; }
+        if (!text) { resultsGrid.innerHTML = '<div class="empty-state">等待輸入...</div>'; return; }
 
         let cleanText = text.replace(/[-\s\*\(\)<>\]A0C1c1a0]/g, '');
         let candidates = getCandidates(text);
 
         candidates.forEach((cand, index) => {
             let cardStyle = index === 0 ? 'card-best-match' : 'card-alternative';
-            // v10.34: Pass cleanText specifically for EAN/UPC to avoid noise
             createBarcodeCard(text, cleanText, cand, cardStyle);
         });
     }
@@ -188,200 +258,281 @@
             let rightCheck = hasRightMark ? 'checked' : '';
             toggleHTML = `
                 <div class="card-options-group">
-                    <div class="card-options"><label><input type="checkbox" class="mark-left-check" ${leftCheck} onchange="updateCanvas(this, '${cand.id}', '${cleanText}')"> 顯示左側 <</label></div>
-                    <div class="card-options"><label><input type="checkbox" class="mark-right-check" ${rightCheck} onchange="updateCanvas(this, '${cand.id}', '${cleanText}')"> 顯示右側 ></label></div>
-                </div>`;
-        } else if (cand.id === 'code39') {
-            toggleHTML = `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" checked onchange="updateCanvas(this, '${cand.id}', '${rawText}')"> 顯示起止符號</label></div>`;
+                    <div class="card-options"><label><input type="checkbox" class="mark-left-check" ${leftCheck} onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示左側 <</label></div>
+                    <div class="card-options"><label><input type="checkbox" class="mark-right-check" ${rightCheck} onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示右側 ></label></div>
+                </div>
+            `;
+        } else if (cand.id === 'code39' || cand.id === 'rationalizedCodabar') {
+            let checked = 'checked';
+            toggleHTML = `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" ${checked} onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示起止符號</label></div>`;
         }
-
-        let densityBadge = cand.id === 'code128' ? '<span class="density-tag density-high">⚡ 高密度</span>' : (cand.id === 'code39' ? '<span class="density-tag density-low">📏 寬版</span>' : '');
+        
+        let densityBadge = '';
+        if (cand.id === 'code128') densityBadge = '<span class="density-tag density-high">⚡ 高密度</span>';
+        if (cand.id === 'code39') densityBadge = '<span class="density-tag density-low">📏 寬版</span>';
 
         card.innerHTML = `
             <div class="card-header">
-                <div><span class="format-name">${cand.name}</span>${densityBadge}<div class="format-tag">${cand.desc}</div></div>
+                <div class="header-left"><span class="format-name">${cand.name}</span>${densityBadge}<div class="format-tag">${cand.desc}</div></div>
                 ${toggleHTML}
             </div>
-            <div class="edit-panel"><input type="text" class="edit-input" value="${rawText}"><div class="edit-actions"><button class="btn-save" onclick="quickFixCard(this, '${cand.id}')">修改</button><button onclick="toggleEditMode(this)">取消</button></div></div>
+            
+            <div class="edit-panel">
+                <input type="text" class="edit-input" value="${rawText}">
+                <div class="edit-actions">
+                    <button class="btn-save" onclick="applyCardEdit(this, '${cand.id}')">確認修改</button>
+                    <button onclick="toggleEditMode(this)">取消</button>
+                </div>
+            </div>
+            
             <canvas></canvas>
+            
             <div class="btn-group">
                 <button onclick="toggleEditMode(this)">✏️ 修改</button>
-                <button onclick="downloadPNG(this)">⬇ PNG</button>
-                <button onclick="downloadSVGFromCard(this)">⬇ SVG</button>
+                <button onclick="downloadPNG(this, '${rawText}', '${cand.name}')">⬇ PNG</button>
+                <button onclick="downloadSVGFromCard(this, '${cand.name}')">⬇ SVG</button>
             </div>
         `;
         
         const canvas = card.querySelector('canvas');
-        resultsGrid.appendChild(card);
-        // Initial Draw
-        drawBarcode(canvas, cand.id, isRetail ? cleanText : rawText, isRetail ? {left: hasLeftMark, right: hasRightMark} : {legacy: true});
+        
+        // Initial Draw: Use default checked state for marks if input had them
+        if(drawBarcodeOnCanvas(canvas, cand.id, rawText, cleanText, true, hasLeftMark, hasRightMark)) {
+            resultsGrid.appendChild(card);
+        }
     }
 
-    window.updateCanvas = function(cb, formatId, text) {
+    window.updateCanvas = function(cb, fid, raw, clean) {
         const card = cb.closest('.barcode-card');
         const canvas = card.querySelector('canvas');
-        const leftCheck = card.querySelector('.mark-left-check');
-        const rightCheck = card.querySelector('.mark-right-check');
-        const legacyCheck = card.querySelector('.show-symbols-check');
+        
+        let showLegacy = true;
+        let showLeft = false;
+        let showRight = false;
 
-        let flags = {};
-        if (leftCheck) flags.left = leftCheck.checked;
-        if (rightCheck) flags.right = rightCheck.checked;
-        if (legacyCheck) flags.legacy = legacyCheck.checked;
+        const legacyBox = card.querySelector('.show-symbols-check');
+        if (legacyBox) showLegacy = legacyBox.checked;
 
-        drawBarcode(canvas, formatId, text, flags);
+        const leftBox = card.querySelector('.mark-left-check');
+        if (leftBox) showLeft = leftBox.checked;
+
+        const rightBox = card.querySelector('.mark-right-check');
+        if (rightBox) showRight = rightBox.checked;
+
+        drawBarcodeOnCanvas(canvas, fid, raw, clean, showLegacy, showLeft, showRight);
     }
 
-    window.quickFixCard = function(btn, formatId) {
+    function applyCardEdit(btn, formatId) {
         const card = btn.closest('.barcode-card');
-        const val = card.querySelector('.edit-input').value;
+        const input = card.querySelector('.edit-input');
+        const newVal = input.value.trim();
+        const cleanVal = newVal.replace(/[-\s\*\(\)<>]/g, '');
         card.querySelector('.edit-panel').style.display = 'none';
-        updateCanvas(btn, formatId, val); // Re-trigger update
+        
+        // Trigger update simulation
+        const canvas = card.querySelector('canvas');
+        const leftBox = card.querySelector('.mark-left-check');
+        const rightBox = card.querySelector('.mark-right-check');
+        
+        // Update checkbox state if user typed new marks
+        if (leftBox) leftBox.checked = newVal.startsWith('<');
+        if (rightBox) rightBox.checked = newVal.endsWith('>');
+        
+        updateCanvas(btn, formatId, newVal, cleanVal);
     }
 
     function toggleEditMode(btn) {
         const card = btn.closest('.barcode-card');
         const panel = card.querySelector('.edit-panel');
         const canvas = card.querySelector('canvas');
-        panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
-        if (panel.style.display === 'flex') canvas.style.display = 'none'; else canvas.style.display = 'block';
+        if (panel.style.display === 'flex') {
+            panel.style.display = 'none';
+            canvas.style.display = 'block';
+        } else {
+            panel.style.display = 'flex';
+            canvas.style.display = 'none';
+            panel.querySelector('input').focus();
+        }
     }
 
-    // v10.34: The Core Logic - Three-Zone Composition
-    function drawBarcode(canvas, formatId, text, flags) {
-        try {
-            let scale = 3;
-            // Zone 1: Pure Barcode Area Settings
-            let drawOpts = {
-                bcid: formatId,
-                text: text,
-                scale: scale,
-                includetext: true,       // Native text enabled
-                textxalign: 'center',
-                backgroundcolor: 'ffffff',
-            };
+    // --- v10.35: 物理隔離繪圖引擎 ---
+    function injectQuietZoneMarks(canvas, scaleFactor, showLeft, showRight) {
+        if (!showLeft && !showRight) return;
 
-            let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(formatId);
-
-            if (isRetail) {
-                // v10.34 CRITICAL FIX: Force Separation
-                drawOpts.barheight = 20;    // Hard limit on bar height
-                drawOpts.textyoffset = 5;   // Physical gap between bar bottom and text top
-                drawOpts.textsize = 13;     // Consistent text size
-                
-                // Native drawing handles guard bars extending into the gap automatically
-                // We just need to ensure ample padding on sides for our marks
-                drawOpts.paddingwidth = 15; 
-                drawOpts.paddingheight = 2;
-            } else {
-                // Industrial formats
-                drawOpts.height = 25;
-                if (formatId === 'code39' && !flags.legacy) drawOpts.text = text.replace(/\*/g, '');
-                drawOpts.alttext = drawOpts.text; // Use custom text rendering for non-retail
-            }
-
-            // Save for download
-            canvas.dataset.drawOpts = JSON.stringify(drawOpts);
-            canvas.dataset.flags = JSON.stringify(flags);
-
-            // Draw Layer 1 & 2 (Bars + Native Text)
-            bwipjs.toCanvas(canvas, drawOpts);
-
-            // Draw Layer 3 (Indicators) - ONLY for Retail
-            if (isRetail && (flags.left || flags.right)) {
-                injectLayer3(canvas, scale, flags.left, flags.right);
-            }
-
-        } catch (e) { console.error(e); }
-    }
-
-    // Layer 3 Injection
-    function injectLayer3(canvas, scale, showLeft, showRight) {
         const ctx = canvas.getContext('2d');
         ctx.save();
         
-        let fontSize = 14 * scale; // Slightly larger for symbols
-        // Force monospace to match OCR-B vibe
+        // Font: Match bwip-js OCR-B sizing (approx)
+        let fontSize = 13 * scaleFactor;
         ctx.font = `bold ${fontSize}px "Space Mono", Consolas, monospace`; 
         ctx.fillStyle = '#000000';
         
-        // Alignment Logic:
-        // Y: Align with the text baseline. 
-        // In bwip-js with textyoffset=5, the text baseline is roughly 4-5 units from bottom.
-        // We set Y to canvas.height - (4 * scale) to align perfectly.
-        ctx.textBaseline = 'alphabetic';
-        let yPos = canvas.height - (4 * scale); 
-
-        // X: Anchor to the padding edge
-        let padPx = 15 * scale; // Matches paddingwidth in drawOpts
-
+        // v10.35 Y-Axis Fix:
+        // Use 'bottom' baseline.
+        // Canvas Height - 2 * scale (Bottom padding) - 1 * scale (Fine tune)
+        // This effectively aligns the < > bottom with the number bottom
+        ctx.textBaseline = 'bottom';
+        let yPos = canvas.height - (3 * scaleFactor); 
+        
+        // X-Positioning: Tight against the bars (Padding is 15)
+        let padPx = 15 * scaleFactor; 
+        
         if (showLeft) {
             ctx.textAlign = 'right';
-            // Draw slightly inside the padding area (close to the first bar)
-            ctx.fillText('<', padPx - (2 * scale), yPos);
+            ctx.fillText('<', padPx - (2 * scaleFactor), yPos);
         }
         if (showRight) {
             ctx.textAlign = 'left';
-            // Draw slightly inside the right padding area
-            ctx.fillText('>', canvas.width - padPx + (2 * scale), yPos);
+            ctx.fillText('>', canvas.width - padPx + (2 * scaleFactor), yPos);
         }
         ctx.restore();
     }
 
-    window.downloadPNG = function(btn) {
-        const canvas = btn.closest('.barcode-card').querySelector('canvas');
-        let opts = JSON.parse(canvas.dataset.drawOpts);
-        let flags = JSON.parse(canvas.dataset.flags || '{}');
-        
-        // High Res Download
-        let scale = 6; // Double resolution
-        opts.scale = scale;
-        
-        const c = document.createElement('canvas');
+    function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols, showLeft, showRight) {
         try {
-            bwipjs.toCanvas(c, opts);
-            // Re-inject markings if needed
-            let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(opts.bcid);
-            if (isRetail && (flags.left || flags.right)) {
-                injectLayer3(c, scale, flags.left, flags.right);
+            let scaleFactor = 3;
+            let drawOpts = { 
+                bcid: formatId, 
+                scale: scaleFactor, 
+                includetext: true,
+                paddingwidth: 15, 
+                paddingheight: 5, // Small padding for bottom alignment
+                backgroundcolor: 'ffffff'
+            };
+
+            let processedText = rawText;
+            if (formatId === 'code39') processedText = rawText.toUpperCase().replace(/\*/g, '');
+            else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) {
+                processedText = cleanText; 
             }
             
-            const a = document.createElement('a');
-            a.href = c.toDataURL('image/png');
-            a.download = `Barcode_${opts.text}.png`;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        } catch(e) {}
+            // Special handlers for other formats (Codabar etc)
+            if (formatId === 'rationalizedCodabar') {
+                let content = rawText.replace(/[A-D]/g, '');
+                let start = 'A', stop = 'A';
+                if (/^[A-D]/.test(rawText)) start = rawText.charAt(0);
+                if (/[A-D]$/.test(rawText)) stop = rawText.charAt(rawText.length - 1);
+                processedText = start + content + stop;
+            }
+            if (formatId === 'sscc18' || formatId === 'gs1-128') {
+               // Simple pass-through for GS1 logic
+               if (rawText.includes('(')) processedText = rawText;
+               else if (/^\d{18}$/.test(cleanText)) processedText = '(00)' + cleanText;
+               else if (/^\d{14}$/.test(cleanText)) processedText = '(01)' + cleanText;
+            }
+
+            // Real BCID mapping
+            let realBcid = formatId;
+            if (formatId === 'sscc18') realBcid = 'gs1-128';
+            if (formatId === 'isbn') realBcid = 'ean13';
+            drawOpts.bcid = realBcid;
+            drawOpts.text = processedText;
+
+            let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(formatId);
+            let displayText = rawText;
+
+            if (isRetail) {
+                // v10.35 KEY FIX: Force Separation
+                delete drawOpts.alttext; // Use native rendering
+                drawOpts.barheight = 22; // Constrain bar height!
+                drawOpts.textyoffset = 5; // Force gap!
+                drawOpts.textsize = 13;   
+            } else {
+                // Industrial logic
+                if (!showSymbols) displayText = rawText.replace(/[\*<>]/g, '');
+                if (formatId === 'code39' && showSymbols && !displayText.includes('*')) displayText = `*${displayText}*`;
+                drawOpts.alttext = displayText;
+                drawOpts.height = 25; // Standard height
+            }
+
+            if (formatId === 'itf14') {
+                drawOpts.height = 35; drawOpts.bearerbars = true;
+            }
+            
+            if (formatId === 'qrcode') { 
+                drawOpts.scale = 12; drawOpts.includetext = false; delete drawOpts.height; 
+            }
+
+            canvas.dataset.drawOpts = JSON.stringify(drawOpts);
+            bwipjs.toCanvas(canvas, drawOpts);
+
+            if (isRetail) {
+                injectQuietZoneMarks(canvas, scaleFactor, showLeft, showRight);
+            }
+
+            return true;
+        } catch (e) { return false; }
     }
 
-    // SVG Injection for Download
-    window.downloadSVGFromCard = function(btn) {
+    // SVG Injection
+    function injectMarksIntoSVG(svgString, showLeft, showRight) {
+        if (!showLeft && !showRight) return svgString;
+        let match = svgString.match(/viewBox="0 0 (\d+) (\d+)"/);
+        if (!match) return svgString;
+        
+        let width = parseInt(match[1]);
+        let height = parseInt(match[2]);
+        let yPos = height - 3; // Align with text baseline in SVG units
+        let style = 'font-family: "Space Mono", Consolas, monospace; font-weight: bold; font-size: 13px; fill: #000000;';
+        
+        let marks = '';
+        if (showLeft) marks += `<text x="13" y="${yPos}" text-anchor="end" style="${style}">&lt;</text>`;
+        if (showRight) marks += `<text x="${width - 13}" y="${yPos}" text-anchor="start" style="${style}">&gt;</text>`;
+        
+        return svgString.replace('</svg>', marks + '</svg>');
+    }
+
+    window.downloadPNG = function(btn, text, suffix) {
         const canvas = btn.closest('.barcode-card').querySelector('canvas');
+        if (!canvas) return;
         let opts = JSON.parse(canvas.dataset.drawOpts);
-        let flags = JSON.parse(canvas.dataset.flags || '{}');
         
-        let svg = bwipjs.toSVG(opts);
-        
-        // Inject SVG text elements if retail
-        let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(opts.bcid);
-        if (isRetail && (flags.left || flags.right)) {
-            // Need height/width from SVG string
-            let match = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
-            if (match) {
-                let w = parseInt(match[1]);
-                let h = parseInt(match[2]);
-                // Align Y based on unscaled units (approx height - 4)
-                let y = h - 4;
-                let style = 'font-family: "Space Mono", Consolas, monospace; font-weight: bold; font-size: 13px; fill: #000000;';
-                let extra = '';
-                if (flags.left) extra += `<text x="12" y="${y}" text-anchor="end" style="${style}">&lt;</text>`;
-                if (flags.right) extra += `<text x="${w-12}" y="${y}" text-anchor="start" style="${style}">&gt;</text>`;
-                svg = svg.replace('</svg>', extra + '</svg>');
-            }
-        }
-        
-        const b = new Blob([svg], {type: "image/svg+xml;charset=utf-8"});
-        const u = URL.createObjectURL(b), a = document.createElement('a');
-        a.href = u; a.download = `Barcode_${opts.text}.svg`; a.click();
+        const card = btn.closest('.barcode-card');
+        const leftCheck = card.querySelector('.mark-left-check');
+        const rightCheck = card.querySelector('.mark-right-check');
+        const showLeft = leftCheck ? leftCheck.checked : false;
+        const showRight = rightCheck ? rightCheck.checked : false;
+        let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(opts.bcid) || opts.bcid === 'ean13';
+
+        const createHighRes = (scaleFactor) => {
+            opts.scale = scaleFactor;
+            const c = document.createElement('canvas');
+            try {
+                bwipjs.toCanvas(c, opts);
+                if (isRetail) injectQuietZoneMarks(c, scaleFactor, showLeft, showRight);
+                const a = document.createElement('a');
+                a.href = c.toDataURL('image/png');
+                a.download = `${text}_${suffix}.png`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                return true;
+            } catch (e) { return false; }
+        };
+        if (!createHighRes(6)) alert("圖片生成失敗");
+    }
+    
+    window.downloadSVGFromCard = function(btn, formatName) {
+        const c = btn.closest('.barcode-card').querySelector('canvas');
+        if(c) downloadSVG(JSON.parse(c.dataset.drawOpts), formatName, btn);
+    }
+    
+    window.downloadSVG = function(opts, fname, btn) {
+        try {
+            let s = bwipjs.toSVG(opts);
+            const card = btn.closest('.barcode-card');
+            const leftCheck = card.querySelector('.mark-left-check');
+            const rightCheck = card.querySelector('.mark-right-check');
+            const showLeft = leftCheck ? leftCheck.checked : false;
+            const showRight = rightCheck ? rightCheck.checked : false;
+            let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(opts.bcid) || opts.bcid === 'ean13';
+
+            if (isRetail) s = injectMarksIntoSVG(s, showLeft, showRight);
+            if (!s.includes('shape-rendering')) s = s.replace('<svg', '<svg shape-rendering="crispEdges"');
+            if (!s.startsWith('<?xml')) s = '<?xml version="1.0" standalone="no"?>\n' + s;
+            
+            const b = new Blob([s], {type: "image/svg+xml;charset=utf-8"});
+            const u = URL.createObjectURL(b), a = document.createElement('a');
+            a.href = u; a.download = `${opts.text}_${fname}.svg`; a.click(); setTimeout(() => URL.revokeObjectURL(u), 1000);
+        } catch (e) { alert("SVG Error: " + e.message); }
     }
 </script>
 </body>
