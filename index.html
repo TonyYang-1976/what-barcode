@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.16)</title>
+    <title>條碼檢核 What barcode (v10.17)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -84,6 +84,14 @@
         .card-warning { border: 2px solid #f59e0b; background-color: #fffbeb; }
         .card-warning::after { content: "⚠️ 檢查碼異常"; position: absolute; top: -12px; right: 15px; background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         
+        /* v10.17 密度標籤 */
+        .density-tag { 
+            font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 4px; margin-left: 8px; 
+            display: inline-block; vertical-align: middle;
+        }
+        .density-high { background-color: #e0f7fa; color: #006064; border: 1px solid #b2ebf2; }
+        .density-low { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
+
         .card-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; }
         .format-name { font-size: 24px; font-weight: 800; color: #1e293b; letter-spacing: -0.5px; }
         .format-tag { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500; }
@@ -308,12 +316,19 @@
 
     function getCandidates(rawText) {
         let isGS1Prefixed = false;
+        let isCode39Prefixed = false; // v10.17: New AIM ID for Code 39
         let cleanText = rawText.replace(/[-\s\*\(\)<>]/g, '');
         
         if (rawText.startsWith(']C1') || rawText.startsWith(']c1')) {
             isGS1Prefixed = true;
             rawText = rawText.substring(3);
             cleanText = rawText.replace(/[-\s\*\(\)<>]/g, ''); 
+        }
+        // v10.17: 偵測 Code 39 的 AIM ID (]A0)
+        else if (rawText.startsWith(']A0') || rawText.startsWith(']a0')) {
+            isCode39Prefixed = true;
+            rawText = rawText.substring(3); // 移除 AIM ID
+            cleanText = rawText.replace(/[-\s\*\(\)<>]/g, '');
         }
 
         const hasSpace = /\s/.test(rawText);
@@ -326,12 +341,15 @@
              list.push({ id: 'rationalizedCodabar', name: 'Codabar (NW-7)', desc: '圖書館/血庫', isStandard: true, score: score, type: 'Codabar' });
         }
 
-        if (/^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) {
-             let score = 50; 
+        // 2. Code 39
+        if (isCode39Prefixed || /^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) {
+             let score = 80; // v10.17: 提升基礎分至 80 (接近 Code 128 的 90)
              if (rawText.includes('*')) score += 200; 
+             if (isCode39Prefixed) score = 200; // 如果有 AIM ID，給予滿分
              list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', isStandard: true, score: score, type: 'Code 39' });
         }
 
+        // 3. GS1-128
         if (isGS1Prefixed) {
              list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 200, type: 'GS1-128' });
         } 
@@ -341,6 +359,7 @@
              list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 180, type: 'GS1-128' });
         }
 
+        // 4. Code 128
         if (/^[\x00-\x7F]+$/.test(rawText)) {
             let score = 90; 
             if (/[a-z]/.test(rawText)) score += 50; 
@@ -348,6 +367,7 @@
             list.push({ id: 'code128', name: 'Code 128', desc: '高密度/通用', isStandard: false, score: score, type: 'Code 128' });
         }
 
+        // 5. EAN / UPC
         if (/^\d+$/.test(cleanText) && !hasSpace) {
             const len = cleanText.length;
             
@@ -355,7 +375,6 @@
                 list.push({ id: 'upce', name: 'UPC-E (GTIN-12)', desc: '美加縮短碼', isStandard: true, score: 160, type: 'UPC-E' });
             }
             
-            // v10.16: 不再檢查 checksum，直接給高分 220
             if (len === 8) {
                 list.push({ id: 'ean8', name: 'EAN-8 (GTIN-8)', desc: '國際縮短碼', isStandard: true, score: 220, type: 'EAN-8' });
             } 
@@ -388,12 +407,12 @@
         if (!text) { resultsGrid.innerHTML = '<div class="empty-state">等待輸入...</div>'; return; }
 
         let rawTextForDisplay = text;
-        if (text.startsWith(']C1') || text.startsWith(']c1')) {
-            rawTextForDisplay = text.substring(3); 
-        }
+        // v10.17: 移除 AIM ID 用於顯示
+        if (text.startsWith(']C1') || text.startsWith(']c1')) rawTextForDisplay = text.substring(3); 
+        if (text.startsWith(']A0') || text.startsWith(']a0')) rawTextForDisplay = text.substring(3);
 
         const cleanText = rawTextForDisplay.replace(/[-\s\*\(\)<>]/g, ''); 
-        const candidates = getCandidates(text);
+        const candidates = getCandidates(text); // 傳入原始 text 含 ID
         
         const hasHighPriorityGS1 = candidates.some(c => ['itf14', 'isbn', 'sscc18', 'gs1-128'].includes(c.id));
 
@@ -585,9 +604,14 @@
 
         let toggleHTML = showToggle ? `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" checked onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示起止符號</label></div>` : '';
         
+        // v10.17 密度標籤生成
+        let densityBadge = '';
+        if (cand.id === 'code128') densityBadge = '<span class="density-tag density-high">⚡ 高密度 (短)</span>';
+        if (cand.id === 'code39') densityBadge = '<span class="density-tag density-low">📏 標準 (寬)</span>';
+
         card.innerHTML = `
             <div class="card-header">
-                <div><span class="format-name">${cand.name}</span><div class="format-tag">${cand.desc}</div></div>
+                <div><span class="format-name">${cand.name}</span>${densityBadge}<div class="format-tag">${cand.desc}</div></div>
                 ${toggleHTML}
             </div>
             
