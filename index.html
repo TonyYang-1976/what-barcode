@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.17)</title>
+    <title>條碼檢核 What barcode (v10.19)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -84,7 +84,6 @@
         .card-warning { border: 2px solid #f59e0b; background-color: #fffbeb; }
         .card-warning::after { content: "⚠️ 檢查碼異常"; position: absolute; top: -12px; right: 15px; background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         
-        /* v10.17 密度標籤 */
         .density-tag { 
             font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 4px; margin-left: 8px; 
             display: inline-block; vertical-align: middle;
@@ -316,7 +315,7 @@
 
     function getCandidates(rawText) {
         let isGS1Prefixed = false;
-        let isCode39Prefixed = false; // v10.17: New AIM ID for Code 39
+        let isCode39Prefixed = false; 
         let cleanText = rawText.replace(/[-\s\*\(\)<>]/g, '');
         
         if (rawText.startsWith(']C1') || rawText.startsWith(']c1')) {
@@ -324,10 +323,9 @@
             rawText = rawText.substring(3);
             cleanText = rawText.replace(/[-\s\*\(\)<>]/g, ''); 
         }
-        // v10.17: 偵測 Code 39 的 AIM ID (]A0)
         else if (rawText.startsWith(']A0') || rawText.startsWith(']a0')) {
             isCode39Prefixed = true;
-            rawText = rawText.substring(3); // 移除 AIM ID
+            rawText = rawText.substring(3); 
             cleanText = rawText.replace(/[-\s\*\(\)<>]/g, '');
         }
 
@@ -336,67 +334,65 @@
 
         // 1. Codabar
         if (/^[A-D]?[0-9\-\$\:\/\.\+]+[A-D]?$/.test(rawText)) {
-             let score = 50; 
+             let score = 120;
              if (/^[A-D].*[A-D]$/.test(rawText)) score += 150; 
              list.push({ id: 'rationalizedCodabar', name: 'Codabar (NW-7)', desc: '圖書館/血庫', isStandard: true, score: score, type: 'Codabar' });
         }
 
         // 2. Code 39
         if (isCode39Prefixed || /^[0-9A-Z \-\.\$\/\+\%]+$/.test(rawText)) {
-             let score = 80; // v10.17: 提升基礎分至 80 (接近 Code 128 的 90)
+             let score = 110; 
              if (rawText.includes('*')) score += 200; 
-             if (isCode39Prefixed) score = 200; // 如果有 AIM ID，給予滿分
+             if (isCode39Prefixed) score = 220; 
              list.push({ id: 'code39', name: 'Code 39', desc: '工業標準', isStandard: true, score: score, type: 'Code 39' });
         }
 
         // 3. GS1-128
         if (isGS1Prefixed) {
-             list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 200, type: 'GS1-128' });
+             list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 250, type: 'GS1-128' });
         } 
         else if (rawText.includes('(') && rawText.includes(')')) {
-             list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 200, type: 'GS1-128' });
+             list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 250, type: 'GS1-128' });
         } else if (/^01\d{14}/.test(rawText) || /^00\d{18}/.test(rawText)) {
-             list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 180, type: 'GS1-128' });
+             list.push({ id: 'gs1-128', name: 'GS1-128 (UCC/EAN-128)', desc: '物流與醫療標準', isStandard: true, score: 220, type: 'GS1-128' });
         }
 
         // 4. Code 128
         if (/^[\x00-\x7F]+$/.test(rawText)) {
-            let score = 90; 
+            let score = 100;
             if (/[a-z]/.test(rawText)) score += 50; 
-            if (rawText.length >= 10) score += 20; 
             list.push({ id: 'code128', name: 'Code 128', desc: '高密度/通用', isStandard: false, score: score, type: 'Code 128' });
         }
 
-        // 5. EAN / UPC
+        // 5. GS1 Retail
         if (/^\d+$/.test(cleanText) && !hasSpace) {
             const len = cleanText.length;
             
             if (len === 6 || (len === 8 && (cleanText.startsWith('0') || cleanText.startsWith('1')))) {
-                list.push({ id: 'upce', name: 'UPC-E (GTIN-12)', desc: '美加縮短碼', isStandard: true, score: 160, type: 'UPC-E' });
+                list.push({ id: 'upce', name: 'UPC-E (GTIN-12)', desc: '美加縮短碼', isStandard: true, score: 220, type: 'UPC-E' });
             }
-            
             if (len === 8) {
-                list.push({ id: 'ean8', name: 'EAN-8 (GTIN-8)', desc: '國際縮短碼', isStandard: true, score: 220, type: 'EAN-8' });
+                list.push({ id: 'ean8', name: 'EAN-8 (GTIN-8)', desc: '國際縮短碼', isStandard: true, score: 250, type: 'EAN-8' });
             } 
             else if (len === 12) {
-                list.push({ id: 'upca', name: 'UPC-A (GTIN-12)', desc: '美加標準碼', isStandard: true, score: 220, type: 'UPC-A' });
+                list.push({ id: 'upca', name: 'UPC-A (GTIN-12)', desc: '美加標準碼', isStandard: true, score: 250, type: 'UPC-A' });
             }
             else if (len === 13) {
                 if (cleanText.startsWith('978') || cleanText.startsWith('979')) 
-                    list.push({ id: 'isbn', name: 'ISBN-13 (書籍)', desc: '國際標準書號', isStandard: true, score: 180, type: 'ISBN' });
+                    list.push({ id: 'isbn', name: 'ISBN-13 (書籍)', desc: '國際標準書號', isStandard: true, score: 250, type: 'ISBN' });
                 else 
-                    list.push({ id: 'ean13', name: 'EAN-13 (GTIN-13)', desc: '商品碼', isStandard: true, score: 220, type: 'EAN-13' });
+                    list.push({ id: 'ean13', name: 'EAN-13 (GTIN-13)', desc: '商品碼', isStandard: true, score: 250, type: 'EAN-13' });
             }
             else if (len === 14) {
-                list.push({ id: 'itf14', name: 'ITF-14 (外箱)', desc: '外箱條碼', isStandard: true, score: 200, type: 'ITF-14' });
-                if (!isGS1Prefixed) list.push({ id: 'gs1-128', name: 'GS1-128 (SCC-14)', desc: '物流標籤格式', isStandard: true, score: 190, type: 'GS1-128' });
+                list.push({ id: 'itf14', name: 'ITF-14 (外箱)', desc: '外箱條碼', isStandard: true, score: 250, type: 'ITF-14' });
+                if (!isGS1Prefixed) list.push({ id: 'gs1-128', name: 'GS1-128 (SCC-14)', desc: '物流標籤格式', isStandard: true, score: 240, type: 'GS1-128' });
             }
             else if (len === 18) {
-                list.push({ id: 'sscc18', name: 'SSCC-18 (GS1-128)', desc: '運輸容器序號', isStandard: true, score: 200, type: 'SSCC-18' });
+                list.push({ id: 'sscc18', name: 'SSCC-18 (GS1-128)', desc: '運輸容器序號', isStandard: true, score: 250, type: 'SSCC-18' });
             }
         }
 
-        if (/[^\x00-\x7F]/.test(rawText) || /^http/i.test(rawText)) list.push({ id: 'qrcode', name: 'QR Code', desc: '二維碼', isStandard: true, score: 200, type: 'QR Code' });
+        if (/[^\x00-\x7F]/.test(rawText) || /^http/i.test(rawText)) list.push({ id: 'qrcode', name: 'QR Code', desc: '二維碼', isStandard: true, score: 250, type: 'QR Code' });
 
         return list.sort((a, b) => b.score - a.score);
     }
@@ -407,12 +403,11 @@
         if (!text) { resultsGrid.innerHTML = '<div class="empty-state">等待輸入...</div>'; return; }
 
         let rawTextForDisplay = text;
-        // v10.17: 移除 AIM ID 用於顯示
         if (text.startsWith(']C1') || text.startsWith(']c1')) rawTextForDisplay = text.substring(3); 
         if (text.startsWith(']A0') || text.startsWith(']a0')) rawTextForDisplay = text.substring(3);
 
         const cleanText = rawTextForDisplay.replace(/[-\s\*\(\)<>]/g, ''); 
-        const candidates = getCandidates(text); // 傳入原始 text 含 ID
+        const candidates = getCandidates(text); 
         
         const hasHighPriorityGS1 = candidates.some(c => ['itf14', 'isbn', 'sscc18', 'gs1-128'].includes(c.id));
 
@@ -598,13 +593,14 @@
     function createBarcodeCard(rawText, cleanText, cand, styleClass, isValid, checkResult) {
         const card = document.createElement('div'); card.className = `barcode-card ${styleClass}`;
         
+        // v10.19: Show Toggle Logic
         let showToggle = false;
-        if (cand.id === 'code39' || /[\*<>]/.test(rawText)) showToggle = true;
-        if (cand.id === 'rationalizedCodabar') showToggle = true;
+        if (cand.id === 'code39' || cand.id === 'rationalizedCodabar') showToggle = true;
+        // 如果偵測到 < >，也顯示開關
+        if (/[<>]/.test(rawText)) showToggle = true;
 
         let toggleHTML = showToggle ? `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" checked onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示起止符號</label></div>` : '';
         
-        // v10.17 密度標籤生成
         let densityBadge = '';
         if (cand.id === 'code128') densityBadge = '<span class="density-tag density-high">⚡ 高密度 (短)</span>';
         if (cand.id === 'code39') densityBadge = '<span class="density-tag density-low">📏 標準 (寬)</span>';
@@ -700,23 +696,39 @@
 
             let isGS1 = ['ean13', 'upca', 'ean8', 'isbn'].includes(formatId);
             
-            let displayText = !showSymbols ? rawText.replace(/[\*<>]/g, '') : rawText;
-            if (showSymbols && formatId === 'code39' && !displayText.includes('*')) displayText = `*${displayText}*`;
+            // v10.19: Display Text Logic
+            let displayText = rawText; 
+            
+            if (!showSymbols) {
+                // 如果關閉符號，只移除特定裝飾符 (星號、角括號)
+                displayText = rawText.replace(/[\*<>]/g, '');
+                // 註：不移除 () 括號，因為 GS1 要求顯示
+            } 
+            
+            if (formatId === 'code39' && showSymbols && !displayText.includes('*')) {
+                displayText = `*${displayText}*`;
+            }
             
             if (formatId === 'rationalizedCodabar') {
                 if (showSymbols) { displayText = processedText; } 
                 else { displayText = processedText.replace(/[A-D]/g, ''); }
             }
 
-            if (isGS1) {
-                drawOpts.height = 25;
-                if (showSymbols && (displayText.includes('<') || displayText.includes('>'))) drawOpts.alttext = displayText;
-            } else if (formatId === 'code39' || formatId === 'rationalizedCodabar') {
-                drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
+            // 強制設定 alttext，覆蓋 bwip-js 預設行為，確保 <> 或 () 顯示正確
+            if (isGS1 || formatId === 'code39' || formatId === 'rationalizedCodabar' || formatId === 'itf14') {
+                drawOpts.alttext = displayText;
+            }
+            
+            if (isGS1) drawOpts.height = 25;
+            else if (formatId === 'code39' || formatId === 'rationalizedCodabar') {
+                drawOpts.height = 15; drawOpts.textxalign = 'center';
             } else if (formatId === 'itf14') {
-                drawOpts.height = 32; drawOpts.bearerbars = true; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
+                drawOpts.height = 32; drawOpts.bearerbars = true; drawOpts.textxalign = 'center';
             } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
                 drawOpts.height = 30; drawOpts.textxalign = 'center'; 
+                // GS1-128 允許 bwip-js 自動格式化，除非使用者有特殊輸入 (含括號)
+                // 但為了確保一致性，若 displayText 含括號則強制使用
+                if (displayText.includes('(')) drawOpts.alttext = displayText;
             } else {
                 drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             }
