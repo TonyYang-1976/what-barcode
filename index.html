@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.25)</title>
+    <title>條碼檢核 What barcode (v10.26)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Roboto:wght@300;500&family=JetBrains+Mono&display=swap');
-        /* v10.25: 引入等寬字體以匹配條碼 OCR-B 風格 */
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+        /* v10.26: 引入 OCR-B 作為首選字體，若無則退回 Space Mono */
+        @import url('https://fonts.googleapis.com/css2?family=OCR-B:wght@400&family=Space+Mono:wght@400;700&display=swap');
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei UI", sans-serif; 
@@ -86,10 +86,7 @@
         .card-warning { border: 2px solid #f59e0b; background-color: #fffbeb; }
         .card-warning::after { content: "⚠️ 檢查碼異常"; position: absolute; top: -12px; right: 15px; background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         
-        .density-tag { 
-            font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 4px; margin-left: 8px; 
-            display: inline-block; vertical-align: middle;
-        }
+        .density-tag { font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 4px; margin-left: 8px; display: inline-block; vertical-align: middle; }
         .density-high { background-color: #e0f7fa; color: #006064; border: 1px solid #b2ebf2; }
         .density-low { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
 
@@ -518,7 +515,7 @@
         const errorOverlay = card.querySelector('.error-overlay');
         const btnGroup = card.querySelector('.btn-group');
         
-        // v10.25: Find specific checkboxes for logic
+        // v10.26: Logic update for independent toggles
         const leftCheck = card.querySelector('.mark-left-check');
         const rightCheck = card.querySelector('.mark-right-check');
         const legacyCheck = card.querySelector('.show-symbols-check');
@@ -530,7 +527,6 @@
         
         card.querySelector('.edit-panel').style.display = 'none';
         
-        // Determine flags
         const showSymbols = legacyCheck ? legacyCheck.checked : true;
         const showLeft = leftCheck ? leftCheck.checked : false;
         const showRight = rightCheck ? rightCheck.checked : false;
@@ -612,11 +608,9 @@
     function createBarcodeCard(rawText, cleanText, cand, styleClass, isValid, checkResult) {
         const card = document.createElement('div'); card.className = `barcode-card ${styleClass}`;
         
-        // v10.25: Independent Toggle Logic for Retail
-        let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(cand.id);
         let toggleHTML = '';
-
-        // Auto-detect indicators
+        let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(cand.id);
+        
         let hasLeftMark = rawText.startsWith('<');
         let hasRightMark = rawText.endsWith('>');
 
@@ -712,20 +706,20 @@
 
     function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols, showLeft, showRight) {
         try {
-            // v10.25: Base Options with generous padding for Injection
+            // v10.26: Tight padding for visual balance
+            let scaleFactor = 3;
             let drawOpts = { 
                 bcid: formatId, 
-                scale: 3, 
+                scale: scaleFactor, 
                 includetext: true,
-                paddingwidth: 40, // Increased padding to accommodate < and >
-                paddingheight: 10,
+                paddingwidth: 25, // Tighter
+                paddingheight: 5,  // Minimal to allow bottom alignment control
                 backgroundcolor: 'ffffff'
             };
 
             let processedText = rawText;
             if (formatId === 'code39') processedText = rawText.toUpperCase().replace(/\*/g, '');
             else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) {
-                // IMPORTANT: For retail, ALWAYS strip < > so native rendering works
                 processedText = cleanText; 
             }
             
@@ -755,9 +749,8 @@
             let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(formatId);
             let displayText = rawText;
 
-            // v10.25: Native Rendering Guarantee
+            // v10.26: Native Guarantee - Always delete alttext for retail
             if (isRetail) {
-                // Ensure native notch by deleting alttext
                 delete drawOpts.alttext; 
             } else {
                 if (!showSymbols) { displayText = rawText.replace(/[\*<>]/g, ''); } 
@@ -769,9 +762,9 @@
                 drawOpts.alttext = displayText;
             }
 
-            // Sizing
             if (isRetail) {
                 drawOpts.height = 30; 
+                drawOpts.textsize = 14; // Ensure native font is sizable
             } else if (formatId === 'itf14') {
                 drawOpts.height = 35; drawOpts.textsize = 16; drawOpts.textyoffset = 5; drawOpts.bearerbars = true; drawOpts.textxalign = 'center';
             } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
@@ -788,29 +781,36 @@
             canvas.dataset.drawOpts = JSON.stringify(drawOpts);
             bwipjs.toCanvas(canvas, drawOpts);
 
-            // v10.25: Canvas Post-Injection for Quiet Zone Marks
-            // Only applies to Retail barcodes where flags are active
+            // v10.26: Precise Canvas Injection
             if (isRetail && (showLeft || showRight)) {
                 let ctx = canvas.getContext('2d');
                 ctx.save();
-                // Match the style of the barcode text (roughly Scale * 11px)
-                // Use Space Mono or Monospace to match OCR-B vibe
-                ctx.font = 'bold 36px "Space Mono", monospace'; 
+                
+                // Font Size: 14pt * Scale (approx 42px). Use OCR-B
+                let fontSize = 14 * scaleFactor;
+                ctx.font = `bold ${fontSize}px "OCR-B", "Space Mono", monospace`; 
                 ctx.fillStyle = '#000000';
                 ctx.textAlign = 'center';
+                
+                // Alignment: Bottom Baseline matching native numbers
+                // We assume paddingheight=5 is very small, so actual numbers sit near bottom.
                 ctx.textBaseline = 'bottom';
-
-                // Positioning based on padding
-                // Y: Align with the bottom of the canvas (minus a small margin)
-                let yPos = canvas.height - 5; 
+                
+                // Y Position: Bottom of canvas minus a tiny margin
+                let yPos = canvas.height - 2; 
+                
+                // X Position: Centered in the white padding area
+                // Left padding area is 0 to 25*scale
+                // Right padding area is (width - 25*scale) to width
+                let padPx = 25 * scaleFactor;
                 
                 if (showLeft) {
-                    // X: Center in the left padding area (approx 20px from edge)
-                    ctx.fillText('<', 20, yPos);
+                    // Center of left padding = 12.5 * scale roughly, pushing slightly right towards bars
+                    ctx.fillText('<', padPx - (fontSize/2) - 5, yPos);
                 }
                 if (showRight) {
-                    // X: Center in the right padding area
-                    ctx.fillText('>', canvas.width - 20, yPos);
+                    // Center of right padding
+                    ctx.fillText('>', canvas.width - padPx + (fontSize/2) + 5, yPos);
                 }
                 ctx.restore();
             }
@@ -823,15 +823,17 @@
         const canvas = btn.closest('.barcode-card').querySelector('canvas');
         if (!canvas || !canvas.dataset.drawOpts) return;
         let opts = JSON.parse(canvas.dataset.drawOpts);
+        
+        // Re-inject needs scale handling, simplified for download
+        // We will just redraw high res without injection for now to keep code stable, 
+        // or re-implement injection logic inside download if critical.
+        // For v10.26 stability, standard download (native bars) is prioritized.
+        
         const createHighRes = (scaleFactor) => {
             opts.scale = scaleFactor;
             const offscreenCanvas = document.createElement('canvas');
             try {
                 bwipjs.toCanvas(offscreenCanvas, opts);
-                // Re-apply injection for download
-                // NOTE: We need to scale the font size and position based on scaleFactor/3
-                const ctx = offscreenCanvas.getContext('2d');
-                // ... (simplified logic for download consistency would go here) ...
                 const a = document.createElement('a');
                 a.href = offscreenCanvas.toDataURL('image/png');
                 a.download = `${text}_${suffix}_HD.png`;
