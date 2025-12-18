@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>條碼檢核 What barcode (v10.22)</title>
+    <title>條碼檢核 What barcode (v10.23)</title>
     <script src="https://unpkg.com/bwip-js@4.2.0/dist/bwip-js-min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -95,8 +95,10 @@
         .format-name { font-size: 24px; font-weight: 800; color: #1e293b; letter-spacing: -0.5px; }
         .format-tag { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500; }
         
-        .card-options { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; background: #f8fafc; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        /* v10.23: 優化選項區域樣式 */
+        .card-options { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; }
         .card-options input { accent-color: #0055AA; width: 16px; height: 16px; cursor: pointer; }
+        .card-options label { cursor: pointer; display: flex; align-items: center; gap: 6px; }
         
         canvas { display: block; max-width: 100%; height: auto !important; margin-bottom: 10px; image-rendering: pixelated; background-color: white; padding: 15px; border-radius: 8px; border: 1px solid #f1f5f9; }
 
@@ -515,6 +517,7 @@
         
         card.querySelector('.edit-panel').style.display = 'none';
         
+        // Fix: checkbox can be null if format doesn't support it, handle graceful
         const showSymbols = checkbox ? checkbox.checked : true;
         const success = drawBarcodeOnCanvas(canvas, formatId, newRawText, newCleanText, showSymbols);
 
@@ -593,11 +596,29 @@
     function createBarcodeCard(rawText, cleanText, cand, styleClass, isValid, checkResult) {
         const card = document.createElement('div'); card.className = `barcode-card ${styleClass}`;
         
+        // v10.23: Logic for Show Symbols Checkbox
+        // Show if: 
+        // 1. Industrial legacy (Code 39, Codabar)
+        // 2. Retail (EAN/UPC/ISBN) to toggle Quiet Zone Marks (< >)
+        // 3. User already typed < or >
         let showToggle = false;
-        if (cand.id === 'code39' || cand.id === 'rationalizedCodabar') showToggle = true;
-        if (/[<>]/.test(rawText)) showToggle = true;
+        let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(cand.id);
+        
+        if (cand.id === 'code39' || cand.id === 'rationalizedCodabar' || isRetail || /[<>]/.test(rawText)) {
+            showToggle = true;
+        }
 
-        let toggleHTML = showToggle ? `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" checked onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> 顯示起止符號</label></div>` : '';
+        // Determine default state: 
+        // Code 39/Codabar -> Checked by default
+        // Retail -> Checked ONLY if input contains < or >
+        // (If Retail is unchecked, it means Native Notch Mode)
+        let defaultChecked = (cand.id === 'code39' || cand.id === 'rationalizedCodabar') || /[<>]/.test(rawText);
+        let checkState = defaultChecked ? 'checked' : '';
+
+        // Label text
+        let labelText = isRetail ? "顯示靜區標記 (< >)" : "顯示起止符號";
+
+        let toggleHTML = showToggle ? `<div class="card-options"><label><input type="checkbox" class="show-symbols-check" ${checkState} onchange="updateCanvas(this, '${cand.id}', '${rawText.replace(/'/g, "\\'")}', '${cleanText}')"> ${labelText}</label></div>` : '';
         
         let densityBadge = '';
         if (cand.id === 'code128') densityBadge = '<span class="density-tag density-high">⚡ 高密度 (短)</span>';
@@ -650,7 +671,7 @@
         `;
         card.appendChild(btnGroup);
         
-        if(drawBarcodeOnCanvas(canvas, cand.id, rawText, cleanText, true)) {
+        if(drawBarcodeOnCanvas(canvas, cand.id, rawText, cleanText, defaultChecked)) {
             resultsGrid.appendChild(card);
         }
     }
@@ -661,7 +682,7 @@
 
     function drawBarcodeOnCanvas(canvas, formatId, rawText, cleanText, showSymbols) {
         try {
-            // v10.22: Strict padding/color
+            // v10.23: Standard industrial styling
             let drawOpts = { 
                 bcid: formatId, 
                 scale: 3, 
@@ -673,7 +694,7 @@
 
             let processedText = rawText;
             if (formatId === 'code39') processedText = rawText.toUpperCase().replace(/\*/g, '');
-            else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) processedText = cleanText; // Clean text for EAN/UPC logic
+            else if (['ean13', 'upca', 'ean8', 'itf14', 'isbn', 'upce'].includes(formatId)) processedText = cleanText;
             
             if (formatId === 'rationalizedCodabar') {
                 let content = rawText.replace(/[A-D]/g, '');
@@ -704,61 +725,56 @@
 
             let isRetail = ['ean13', 'upca', 'ean8', 'isbn', 'upce'].includes(formatId);
             
-            // v10.22: EAN/UPC Native Rendering Restore Logic
-            // 若為零售條碼，且開啟顯示符號 -> 不設定 alttext，讓 bwip-js 用原生方式畫出凹槽與嵌入數字
-            // 若關閉顯示符號 -> 設定 includetext: false
+            let displayText = rawText; 
+            
+            // v10.23: Rendering Logic
+            // If Retail:
+            //   - Checkbox ON  -> Add < > -> Force alttext -> Flat bars
+            //   - Checkbox OFF -> Native drawing -> Notched bars
+            
             if (isRetail) {
                 if (showSymbols) {
-                    // Do NOT set alttext. Let it be natural.
-                    delete drawOpts.alttext; 
+                    // Checkbox ON: Add < > if they are missing
+                    let niceText = rawText.replace(/[\*<>]/g, ''); 
+                    displayText = `< ${niceText} >`; // Force format with indicators
+                    drawOpts.alttext = displayText; // This forces flat bars
                 } else {
-                    drawOpts.includetext = false;
+                    // Checkbox OFF: Native notched
+                    delete drawOpts.alttext; 
                 }
             } else {
-                // Non-retail (Code 128, 39, etc.) -> Use manual alttext
-                let displayText = rawText; 
+                // Non-retail (Code 39, Codabar)
                 if (!showSymbols) {
                     displayText = rawText.replace(/[\*<>]/g, '');
                 } 
+                
                 if (formatId === 'code39' && showSymbols && !displayText.includes('*')) {
                     displayText = `*${displayText}*`;
                 }
+                
                 if (formatId === 'rationalizedCodabar') {
                     if (showSymbols) { displayText = processedText; } 
                     else { displayText = processedText.replace(/[A-D]/g, ''); }
                 }
                 
-                // For non-retail, we typically control text manually
                 drawOpts.alttext = displayText;
             }
 
-            // v10.22: Specific Sizing
             if (isRetail) {
                 drawOpts.height = 30; 
-                // Removed textsize/textyoffset to let bwip-js use standard OCR-B defaults
-            } else if (formatId === 'itf14') {
-                drawOpts.height = 35; 
-                drawOpts.textsize = 16; 
-                drawOpts.textyoffset = 5;
-                drawOpts.bearerbars = true; 
-                drawOpts.textxalign = 'center';
-            } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
-                drawOpts.height = 30; 
-                drawOpts.textsize = 13;
-                drawOpts.textyoffset = 2;
-                drawOpts.textxalign = 'center'; 
-                // Restore alttext for GS1-128 if needed (e.g. parens)
-                if (isRetail === false && drawOpts.alttext && drawOpts.alttext.includes('(')) {
-                     // Keep custom alttext for GS1-128 human readable
-                } else {
-                    // Let engine format it nicely
-                    delete drawOpts.alttext;
+                if (showSymbols) { 
+                    // If showing symbols (flat), adjusting font size might look better
+                    drawOpts.textsize = 13;
                 }
+            } else if (formatId === 'code39' || formatId === 'rationalizedCodabar') {
+                drawOpts.height = 15; drawOpts.textxalign = 'center';
+            } else if (formatId === 'itf14') {
+                drawOpts.height = 35; drawOpts.bearerbars = true; drawOpts.textxalign = 'center'; drawOpts.textsize = 16; drawOpts.textyoffset = 5;
+            } else if (formatId === 'sscc18' || formatId === 'gs1-128') {
+                drawOpts.height = 30; drawOpts.textxalign = 'center'; 
+                if (displayText.includes('(')) drawOpts.alttext = displayText;
             } else {
-                drawOpts.height = 20; 
-                drawOpts.textsize = 13;
-                drawOpts.textxalign = 'center'; 
-                drawOpts.textyoffset = 2;
+                drawOpts.height = 15; drawOpts.textxalign = 'center'; drawOpts.alttext = displayText;
             }
             
             if (formatId === 'qrcode') { 
