@@ -708,18 +708,14 @@
         const ctx = canvas.getContext('2d');
         ctx.save();
         
-        // v10.33: Font same size as numbers
         let fontSize = 13 * scaleFactor;
         ctx.font = `bold ${fontSize}px "Space Mono", Consolas, monospace`; 
         ctx.fillStyle = '#000000';
         
-        // v10.33: Relative Positioning based on canvas height (Total = 20(bar) + 4(gap) + 10(text) + 2(pad) = ~36 units)
-        // Text Baseline 'bottom' aligns with the very bottom of the canvas
-        // Height - 2*scale corresponds to bottom padding
+        // v10.33: Y-Axis Up Correction (Height - 6*scale to align with raised text)
         ctx.textBaseline = 'bottom';
-        let yPos = canvas.height - (2 * scaleFactor); 
+        let yPos = canvas.height - (6 * scaleFactor); 
         
-        // X-Positioning
         let padPx = 15 * scaleFactor; 
         
         if (showLeft) {
@@ -741,7 +737,7 @@
                 scale: scaleFactor, 
                 includetext: true,
                 paddingwidth: 15, 
-                paddingheight: 2, // Minimal bottom padding, space created by textyoffset
+                paddingheight: 10,
                 backgroundcolor: 'ffffff'
             };
 
@@ -778,10 +774,10 @@
 
             if (isRetail) {
                 delete drawOpts.alttext; 
-                // v10.33: Physical Separation
-                drawOpts.barheight = 20; // Force short bars
-                drawOpts.textyoffset = 4; // Force gap
-                drawOpts.textsize = 13;   // Force font size
+                // v10.33: Force short bars to prevent overlap
+                drawOpts.barheight = 22; 
+                drawOpts.textyoffset = 5; 
+                drawOpts.textsize = 13;   
             } else {
                 if (!showSymbols) { displayText = rawText.replace(/[\*<>]/g, ''); } 
                 if (formatId === 'code39' && showSymbols && !displayText.includes('*')) { displayText = `*${displayText}*`; }
@@ -827,8 +823,8 @@
         let width = parseInt(match[1]);
         let height = parseInt(match[2]);
         
-        // v10.33 SVG Y: Align with bottom text
-        let yPos = height - 2; 
+        // v10.33 SVG Y: Matches the canvas fix
+        let yPos = height - 6; 
         
         let marks = '';
         let style = 'font-family: "Space Mono", Consolas, monospace; font-weight: bold; font-size: 13px; fill: #000000;';
